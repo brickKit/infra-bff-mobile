@@ -4,7 +4,7 @@ kind: Component
 metadata:
   id: infra/bff-mobile                # ⚠️ Fork 件必须与标准件完全一致（§3.4.1）
   name: 移动端聚合层
-  version: 1.0.0                      # 精确版本，不接受 ^ / ~ / latest
+  version: 1.0.1                      # 精确版本，不接受 ^ / ~ / latest。1.0.1：后端实现完成（Step A 的 1.0.0 只有骨架/契约，没有可运行的后端）
   description: 全系统第一个 TypeScript 组件——GraphQL BFF，手写 schema 按前端页面裁剪，DataLoader 强制防 N+1，严禁业务逻辑与直连数据库（设计书 §6.5）
   license: Apache-2.0
   vendor: brickKit
@@ -47,7 +47,7 @@ configSchema:
 
 deployment:
   type: container
-  image: brickenterprise/infra-bff-mobile:1.0.0
+  image: brickenterprise/infra-bff-mobile:1.0.1
   port: 8500                          # 端口册 registry/ports.tsv——无 gRPC，只有 HTTP
   labels:                             # 平台只搬运，不解释键值。值必须是字符串
     prometheus.io/scrape: "true"

@@ -1,0 +1,35 @@
+{
+  "name": "infra-bff-mobile",
+  "version": "1.0.1",
+  "description": "infra-bff-mobile：全系统第一个 TypeScript 组件——GraphQL BFF，手写 schema 按前端页面裁剪（设计书 §6.5）",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "besdk": "git+https://github.com/brickKit/be-sdk-ts.git#v0.3.3",
+    "graphql": "17.0.2",
+    "@graphql-tools/schema": "10.1.1",
+    "@graphql-tools/utils": "12.0.1",
+    "@grpc/grpc-js": "1.14.4",
+    "@grpc/proto-loader": "0.8.1",
+    "dataloader": "2.2.3"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "3.2.7",
+    "tsx": "4.23.13",
+    "@types/node": "22.19.0"
+  },
+  "overrides": {
+    "graphql": "17.0.2"
+  }
+}
