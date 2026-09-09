@@ -1,0 +1,208 @@
+# infra-bff-mobile · 手写 GraphQL schema（设计计划 §3.1）
+#
+# ⚠️ 不是从任何 .proto 生成的——按前端页面裁剪，不是 62 个组件契约的机械
+# 并集（设计计划 §3.1）。字段直接对应各后端组件 proto/openapi 里已有的
+# 字段（camelCase 化），不做额外加工/计算。
+#
+# ⚠️ 装配时按弱依赖是否装配裁剪：这个环境没装的组件，对应的字段在构建
+# schema 时**根本不注册**，不是注册了返回 null（设计计划 §3.3——否则
+# introspection 会把字段暴露出去，前端按 schema 写了查询、运行时永远拿
+# null，症状是"页面空白但不报错"）。这份 .graphql 文件是**全量**版本
+# （所有弱依赖都装配时的完整 schema），`src/schema.ts` 在启动时按实际
+# 装配情况裁剪出一份子集。
+#
+# ⚠️ 两类读的权限模型不同，判据是"这个组件的 assembly.yaml 有没有真
+# data_scopes"（阶段三 Task 11 的一次真实设计决策，用户在权限缺口被
+# 发现时明确拍的板，见 AGENTS.md「这个组件特有的坑」）：
+#   - customer/product：mdm-customer/mdm-product 的 data_scopes: none
+#     （全员可见），走 gRPC BatchGet，DataLoader 防 N+1。
+#   - order/myOrders、inventoryBalance、myTasks：erp-sales（org/owner）、
+#     erp-inventory（warehouse，mode: in）、infra-workflow（org/owner）
+#     都有真实数据权限，而全项目的 gRPC 组件间协议统一不做数据权限过滤
+#     （真正的过滤只在各自 REST 面的 besdk.ScopeOf 生效）——这三类字段
+#     改走 REST（原样转发 Authorization 头），不走 gRPC，否则会绕开数据
+#     权限（query 里传一个 id 就能看到别人的）。⚠️ 代价：erp-inventory
+#     的 `GET /balances` 只有单条查询，没有批量端点——`inventoryBalance`
+#     因此**不提供** DataLoader 批量版本，同 `order(id)` 一样是"给定
+#     已知 id 查一条"，不是"列出我的全部"，不强求防 N+1。
+
+scalar DateTime
+
+type Query {
+  # ── mdm-customer（data_scopes: none，gRPC BatchGet，DataLoader 防 N+1） ──
+  customer(id: ID!): Customer
+  customers(ids: [ID!]!): [Customer]!
+
+  # ── mdm-product（data_scopes: none，gRPC BatchGet，DataLoader 防 N+1） ──
+  product(id: ID!): Product
+  products(ids: [ID!]!): [Product]!
+
+  # ── erp-sales（有 org/owner 数据权限，走 REST 转发） ──
+  order(id: ID!): Order
+  myOrders(cursor: String, pageSize: Int, statusFilter: OrderStatus): OrderPage!
+
+  # ── erp-inventory（有 warehouse 数据权限，走 REST 转发；无批量端点，见上） ──
+  inventoryBalance(productId: ID!, warehouseId: ID!): InventoryBalance
+
+  # ── infra-workflow（有 org/owner 数据权限，走 REST 转发；移动端主场景） ──
+  myTasks(cursor: String, pageSize: Int, type: TaskType, status: TaskStatus): TaskPage!
+}
+
+# ============ mdm-customer ============
+
+enum CustomerStatus {
+  ACTIVE
+  DISABLED
+}
+
+type Contact {
+  id: ID!
+  name: String!
+  phone: String!
+  email: String!
+  primary: Boolean!
+}
+
+type BillingInfo {
+  id: ID!
+  title: String!
+  taxNo: String!
+  bankName: String!
+  bankAccount: String!
+  address: String!
+}
+
+type Customer {
+  id: ID!
+  code: String!
+  name: String!
+  taxNo: String!
+  creditLimit: String! # decimal-as-string，前端不做任何计算
+  status: CustomerStatus!
+  version: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  contacts: [Contact!]!
+  billingInfos: [BillingInfo!]!
+}
+
+# ============ mdm-product ============
+
+enum ProductStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum TrackingType {
+  NONE
+  BATCH
+  SERIAL
+}
+
+type Product {
+  id: ID!
+  sku: String!
+  name: String!
+  categoryId: String!
+  baseUomId: String!
+  trackingType: TrackingType!
+  standardCost: String! # decimal-as-string
+  status: ProductStatus!
+  version: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+# ============ erp-sales ============
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  SHIPPED
+  COMPLETED
+  CANCELLED
+  CLOSED
+  SUSPENDED
+}
+
+type OrderItem {
+  productId: ID!
+  productSku: String!
+  productName: String!
+  uomId: String!
+  qty: String! # decimal-as-string
+  unitPrice: String! # decimal-as-string，快照
+  discount: String! # decimal-as-string，0~1
+  taxRate: String! # decimal-as-string
+  subtotal: String! # 服务端算好，前端不自己算钱（设计计划 §3.2/§8.4）
+}
+
+type Order {
+  id: ID!
+  orderNo: String!
+  customerId: ID!
+  customerName: String! # 快照
+  status: OrderStatus!
+  items: [OrderItem!]!
+  totalAmount: String! # decimal-as-string
+  deptId: String!
+  deptPath: String!
+  ownerId: String!
+  reservationId: String!
+  version: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type OrderPage {
+  orders: [Order!]!
+  nextCursor: String!
+}
+
+# ============ erp-inventory ============
+
+type InventoryBalance {
+  productId: ID!
+  warehouseId: ID!
+  onHandQty: String! # decimal-as-string
+  reservedQty: String! # decimal-as-string
+  availableQty: String! # onHandQty - reservedQty，服务端算好
+  version: Int!
+}
+
+# ============ infra-workflow ============
+
+enum TaskType {
+  APPROVAL
+  EXCEPTION
+}
+
+enum TaskStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RESOLVED
+  CANCELLED
+}
+
+type Task {
+  id: ID!
+  type: TaskType!
+  status: TaskStatus!
+  assigneeSub: String!
+  assigneeDeptPath: String!
+  title: String!
+  summaryJson: String! # 展示快照原样透传，前端自己解析，本组件不理解其内容
+  sourceComponent: String!
+  sourceAggregate: String!
+  sourceId: String!
+  deepLink: String!
+  dueAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type TaskPage {
+  tasks: [Task!]!
+  nextCursor: String!
+}

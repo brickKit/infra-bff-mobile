@@ -1,0 +1,48 @@
+id: infra/bff-mobile                 # 必须与 component.yaml 一致，be-ops 校验
+version: 1.0.0
+
+asset:
+  source_type: open_standard
+  assembly_role: default
+  contract_lock: strict
+  customization_guide: |
+    技术形态（GraphQL/REST 聚合/tRPC）是一次性技术选型，不是槽位——
+    前端与本组件由同一份查询语言耦合，换形态等于重写前端（设计计划
+    §8 结尾的分歧排查，不新增槽位族）。metadata.id 与 version 一个字
+    都不能改。
+
+domain: infra
+tier: backend                        # 设计书 §3.5.1 的 tier 只有 backend/frontend 两档——BFF 是服务端容器，不是浏览器交付物，归 backend
+
+edge_routes:
+  - { path: /graphql, auth: required }
+
+# ⚠️ 没有 menus 段——本组件不是一个"页面"，是前端所有页面共用的数据
+# 聚合层，没有独立的功能菜单可挂。
+
+# ⚠️ 没有 data 段——本组件零持久化数据，没有 schema/role（§6.5 铁律
+# 二：严禁直连 DB，设计计划 §2）。be-ops 不强制要求这一段（只有
+# data_scopes 是 fail-closed 必填，见下）。
+
+# data_scopes: none——本组件不持有任何数据，不做任何行级过滤。⚠️ 这不
+# 等于"下游会用 gRPC 转发的 JWT 自己过滤"——全项目的 gRPC 组件间协议
+# 统一不做数据权限过滤（真正的 org/owner/warehouse 过滤只在各自 REST
+# 面的 besdk.ScopeOf 生效）。本组件对有真实数据权限的字段（订单/库存/
+# 待办）改走 REST 转发 Authorization 头，让下游 REST 面去判；对
+# data_scopes: none 的字段（客户/产品）才走 gRPC BatchGet。见
+# contracts/schema.graphql 顶部注释与 AGENTS.md。
+data_scopes: none
+
+# 每个 resolver 一个权限键（设计计划 §9 待决问题 1：be-sdk-ts 的
+# requirePermission(perm, resolver) 就是 TS 侧的"漏写权限键"强制点，
+# 靠 make gates 的裸 resolver 扫描守，不靠类型系统）。
+permissions:
+  - { key: infra.bff-mobile.customer.view,  title: 查询客户（移动端）,   type: action }
+  - { key: infra.bff-mobile.product.view,   title: 查询产品（移动端）,   type: action }
+  - { key: infra.bff-mobile.order.view,     title: 查询销售订单（移动端）, type: action }
+  - { key: infra.bff-mobile.inventory.view, title: 查询库存余量（移动端）, type: action }
+  - { key: infra.bff-mobile.task.view,      title: 查询我的待办（移动端）, type: action }
+
+# ⚠️ 没有 shell 段——本组件不进任何外壳，合并部署时保持独立容器
+# （设计书 §13.5："infra-bff-mobile（独立容器）与 frontend-* 都不进
+# 任何外壳"——TS 侧没有"进程内共存"这回事，跨语言合不进来）。

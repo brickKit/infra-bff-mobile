@@ -1,0 +1,62 @@
+apiVersion: brickkit/v1
+kind: Component
+
+metadata:
+  id: infra/bff-mobile                # ⚠️ Fork 件必须与标准件完全一致（§3.4.1）
+  name: 移动端聚合层
+  version: 1.0.0                      # 精确版本，不接受 ^ / ~ / latest
+  description: 全系统第一个 TypeScript 组件——GraphQL BFF，手写 schema 按前端页面裁剪，DataLoader 强制防 N+1，严禁业务逻辑与直连数据库（设计书 §6.5）
+  license: Apache-2.0
+  vendor: brickKit
+
+tags: [infra, bff, graphql, typescript, mobile]
+
+artifacts:
+  - type: api-contract
+    format: graphql                   # 手写 SDL，不从 proto 生成（设计计划 §3.1）——本组件唯一的对外契约
+    files: [contracts/schema.graphql]
+  - type: metadata                    # ← assembly.yaml 靠这一条随组件分发（§3.5）
+    files: [assembly.yaml]
+
+# ⚠️ 一条强依赖都不能有——本组件在任何装配组合下都要能起来（设计计划
+# §5：客户只买了一部分组件，把任何一个写成强依赖等于宣布"没买它就别想
+# 用移动端"）。全部弱依赖，缺失时不注册对应 schema 字段（设计计划 §3.3）。
+# 零 database / 零 mq 资源——§6.5 铁律二：严禁直连 DB；不持有任何状态
+# 也就不需要发/收事件（设计计划 §4）。
+dependencies:
+  components:
+    - { id: mdm/customer@1.0.3, optional: true }
+    - { id: mdm/product@1.0.3, optional: true }
+    - { id: erp/sales@1.0.7, optional: true }
+    - { id: erp/inventory@1.0.6, optional: true }
+    - { id: infra/workflow@1.0.0, optional: true }
+  resources: []
+
+configSchema:
+  type: object
+  properties:
+    otelBaseUrl:                      # ⚠️ 不能叫 otelEndpoint，*_ENDPOINT 是保留后缀
+      type: string
+      default: ""                     # 空 → Blackhole Exporter，零成本（§7.5）
+    iamJwksUrl:                       # JWT 本地验签的公钥来源，指向 infra-iam-casdoor
+      type: string
+      default: ""
+    authzBundleUrl:                   # 权限判定的 bundle 轮询地址，指向 infra-authz
+      type: string
+      default: ""
+
+deployment:
+  type: container
+  image: brickenterprise/infra-bff-mobile:1.0.0
+  port: 8500                          # 端口册 registry/ports.tsv——无 gRPC，只有 HTTP
+  labels:                             # 平台只搬运，不解释键值。值必须是字符串
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8500"
+    prometheus.io/path: "/metrics"
+
+# ⚠️ 没有 migration 段——本组件零持久化数据，没有迁移可跑（设计计划 §2）。
+
+healthCheck:
+  type: http
+  path: /healthz                      # ⚠️ 只查本进程存活，严禁查依赖组件（§12.3.6）
+  startPeriodSeconds: 90              # Node 组件写 90，不是 Go 的默认 60（总纲全局约束§K3）
