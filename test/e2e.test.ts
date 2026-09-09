@@ -1,7 +1,7 @@
 /**
  * 端到端：真实子进程跑 `src/main.ts`（`runStandalone(createModule)`），
  * 真实 JWKS + bundle 服务器，真实打 `/graphql`，真实调 mdm-customer
- * （gRPC 路径）与 infra-workflow（REST 转发路径）——同 be-sdk-ts
+ * （gRPC 路径）与 infra-workflow/erp-sales（REST 转发路径）——同 be-sdk-ts
  * `standalone.test.ts` 的既有判据：单元测试的构造路径测不出"整条链路
  * 装起来会不会崩"，这次移植过程中真的靠这个思路在 be-sdk-ts 的
  * client.ts 上抓到一个真实 bug（Cannot compose insecure credentials，
@@ -30,8 +30,11 @@ import { startFakeBundle, startFakeJWKS } from "./helpers.js";
 
 const MDM_CUSTOMER_ENDPOINT = process.env.TEST_MDM_CUSTOMER_ENDPOINT ?? "";
 const INFRA_WORKFLOW_ENDPOINT = process.env.TEST_INFRA_WORKFLOW_ENDPOINT ?? "";
+const ERP_SALES_ENDPOINT = process.env.TEST_ERP_SALES_ENDPOINT ?? "";
 const TEST_CUSTOMER_ID = process.env.TEST_CUSTOMER_ID ?? "";
-const HAS_FIXTURES = Boolean(MDM_CUSTOMER_ENDPOINT && INFRA_WORKFLOW_ENDPOINT && TEST_CUSTOMER_ID);
+const HAS_FIXTURES = Boolean(
+  MDM_CUSTOMER_ENDPOINT && INFRA_WORKFLOW_ENDPOINT && ERP_SALES_ENDPOINT && TEST_CUSTOMER_ID,
+);
 
 const PKG_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const MAIN_TS = fileURLToPath(new URL("../src/main.ts", import.meta.url));
@@ -69,16 +72,27 @@ describe.skipIf(!HAS_FIXTURES)("infra-bff-mobile 端到端", () => {
     async () => {
       const customerQuery = `{ customer(id: "${TEST_CUSTOMER_ID}") { id name status } }`;
       const tasksQuery = `{ myTasks { tasks { id } nextCursor } }`;
+      // 阶段三计划 Task 11 的验证标准原文点名的组合：一次 GraphQL 查询
+      // 联动 mdm-customer（gRPC）+ erp-sales（REST 转发）两个后端组件。
+      const joinedQuery = `{ customer(id: "${TEST_CUSTOMER_ID}") { id name } order(id: "does-not-exist") { orderNo } }`;
 
       const originalManifest = await readFile(MANIFEST_PATH, "utf-8");
       await writeFile(
         MANIFEST_PATH,
-        JSON.stringify({ [sha256(customerQuery)]: customerQuery, [sha256(tasksQuery)]: tasksQuery }),
+        JSON.stringify({
+          [sha256(customerQuery)]: customerQuery,
+          [sha256(tasksQuery)]: tasksQuery,
+          [sha256(joinedQuery)]: joinedQuery,
+        }),
       );
 
       const jwks = await startFakeJWKS();
       const bundle = await startFakeBundle({
-        mobile_user: ["infra.bff-mobile.customer.view", "infra.bff-mobile.task.view"],
+        mobile_user: [
+          "infra.bff-mobile.customer.view",
+          "infra.bff-mobile.task.view",
+          "infra.bff-mobile.order.view",
+        ],
       });
 
       let child: ChildProcess | undefined;
@@ -92,6 +106,7 @@ describe.skipIf(!HAS_FIXTURES)("infra-bff-mobile 端到端", () => {
             COMPONENT_VERSION: "test",
             MDM_CUSTOMER_ENDPOINT,
             INFRA_WORKFLOW_ENDPOINT,
+            ERP_SALES_ENDPOINT,
             IAM_JWKS_URL: jwks.url,
             AUTHZ_BUNDLE_URL: bundle.url,
           },
@@ -174,7 +189,29 @@ describe.skipIf(!HAS_FIXTURES)("infra-bff-mobile 端到端", () => {
         // 连接被拒绝/DNS 解析失败这类"根本没打到 infra-workflow"的错误。
         expect(stderr).toContain("infra/workflow /infra/workflow/tasks 返回 401");
 
-        // ⑤ 一个没在清单里的哈希：拒绝，不是"随便什么查询都放行"。
+        // ⑤ 一次 GraphQL 查询联动 mdm-customer + erp-sales（阶段三计划
+        // Task 11 验证标准原文点名的组合）：同一个请求里 customer 走
+        // gRPC 真实拿到数据，order 走 REST 转发真实打到 erp-sales——
+        // 两条完全不同的数据路径在同一次 GraphQL 执行里都被真实触发，
+        // 不是分两次请求各测一半。
+        const joinedResp = await fetch(graphqlUrl, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+          body: persistedBody(joinedQuery),
+        });
+        expect(joinedResp.status).toBe(200);
+        const joinedBody = (await joinedResp.json()) as {
+          data: { customer: { id: string; name: string } | null; order: null } | null;
+          errors?: Array<{ path: string[] }>;
+        };
+        expect(joinedBody.data?.customer?.id).toBe(TEST_CUSTOMER_ID);
+        // order 字段同 ④ 的既有判据：erp-sales 是真实容器，验签走真实
+        // infra-iam-casdoor，认不出这里的假 token，REST 转发确实发生
+        // 但被下游拒绝——customer 那一半不受影响照样返回真实数据，
+        // 证明两条路径互不干扰，一次查询里能同时联动两个组件。
+        expect(joinedBody.errors?.some((e) => e.path?.[0] === "order")).toBe(true);
+
+        // ⑥ 一个没在清单里的哈希：拒绝，不是"随便什么查询都放行"。
         const arbitraryResp = await fetch(graphqlUrl, {
           method: "POST",
           headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
