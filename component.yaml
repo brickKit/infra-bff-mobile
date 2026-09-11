@@ -4,7 +4,10 @@ kind: Component
 metadata:
   id: infra/bff-mobile                # ⚠️ Fork 件必须与标准件完全一致（§3.4.1）
   name: 移动端聚合层
-  version: 1.0.3                      # 精确版本，不接受 ^ / ~ / latest。1.0.1：后端实现完成（Step A 的 1.0.0 只有骨架/契约，没有可运行的后端）；
+  version: 1.0.4                      # 精确版本，不接受 ^ / ~ / latest。
+                                       # 1.0.4：弱依赖版本号同步跟进 mdm/customer@1.0.4、mdm/product@1.0.4、
+                                       # erp/sales@1.0.10（新增 make seed/seed-clean 引发的连锁同步，无破坏性变更）。
+                                       # 1.0.1：后端实现完成（Step A 的 1.0.0 只有骨架/契约，没有可运行的后端）；
                                        # 1.0.2：补一条真实联动 mdm-customer+erp-sales 的组合查询 e2e 测试，
                                        # 顺带同步弱依赖版本号跟进 erp/sales@1.0.8、infra/workflow@1.0.1
                                        # （见根 docs/dev/实测踩坑记录.md C12——不同步会被 brickkit up 解析成
@@ -31,9 +34,9 @@ artifacts:
 # 也就不需要发/收事件（设计计划 §4）。
 dependencies:
   components:
-    - { id: mdm/customer@1.0.3, optional: true }
-    - { id: mdm/product@1.0.3, optional: true }
-    - { id: erp/sales@1.0.9, optional: true }
+    - { id: mdm/customer@1.0.4, optional: true }
+    - { id: mdm/product@1.0.4, optional: true }
+    - { id: erp/sales@1.0.10, optional: true }
     - { id: erp/inventory@1.0.6, optional: true }
     - { id: infra/workflow@1.0.1, optional: true }
   resources: []
@@ -53,7 +56,7 @@ configSchema:
 
 deployment:
   type: container
-  image: brickenterprise/infra-bff-mobile:1.0.3
+  image: brickenterprise/infra-bff-mobile:1.0.4
   port: 8500                          # 端口册 registry/ports.tsv——无 gRPC，只有 HTTP
   labels:                             # 平台只搬运，不解释键值。值必须是字符串
     prometheus.io/scrape: "true"
