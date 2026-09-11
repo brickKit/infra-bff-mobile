@@ -4,7 +4,10 @@ kind: Component
 metadata:
   id: infra/bff-mobile                # ⚠️ Fork 件必须与标准件完全一致（§3.4.1）
   name: 移动端聚合层
-  version: 1.0.6                      # 精确版本，不接受 ^ / ~ / latest。
+  version: 1.0.7                      # 精确版本，不接受 ^ / ~ / latest。
+                                       # 1.0.7：弱依赖版本号同步跟进 erp/sales@1.0.13、erp/inventory@1.0.8
+                                       # （erp-inventory 新增 make seed/db-reset + 修 down 迁移外键漂移
+                                       # bug，无破坏性变更），dependency-version-scan 真机抓到的连锁漂移。
                                        # 1.0.6：弱依赖版本号同步跟进 erp/sales@1.0.12、erp/inventory@1.0.7、
                                        # infra/workflow@1.0.2（三者都是各自补 docs/手册.md 的
                                        # TEST_PG_DSN 示例，无破坏性变更），dependency-version-scan gate
@@ -43,8 +46,8 @@ dependencies:
   components:
     - { id: mdm/customer@1.0.4, optional: true }
     - { id: mdm/product@1.0.4, optional: true }
-    - { id: erp/sales@1.0.12, optional: true }
-    - { id: erp/inventory@1.0.7, optional: true }
+    - { id: erp/sales@1.0.13, optional: true }
+    - { id: erp/inventory@1.0.8, optional: true }
     - { id: infra/workflow@1.0.2, optional: true }
   resources: []
 
@@ -63,7 +66,7 @@ configSchema:
 
 deployment:
   type: container
-  image: brickenterprise/infra-bff-mobile:1.0.6
+  image: brickenterprise/infra-bff-mobile:1.0.7
   port: 8500                          # 端口册 registry/ports.tsv——无 gRPC，只有 HTTP
   labels:                             # 平台只搬运，不解释键值。值必须是字符串
     prometheus.io/scrape: "true"
