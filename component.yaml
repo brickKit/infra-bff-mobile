@@ -4,7 +4,8 @@ kind: Component
 metadata:
   id: infra/bff-mobile                # ⚠️ Fork 件必须与标准件完全一致（§3.4.1）
   name: 移动端聚合层
-  version: 1.0.18                     # 精确版本，不接受 ^ / ~ / latest。
+  version: 1.0.19                     # 精确版本，不接受 ^ / ~ / latest。
+                                      # v1.0.19：依赖版本号同步跟进 erp/inventory@1.0.17、erp/sales@1.0.25、mdm/customer@1.0.9、mdm/product@1.0.10，无破坏性变更。
                                       # v1.0.18：依赖版本号同步跟进 erp/inventory@1.0.16、erp/sales@1.0.24、infra/workflow@1.0.4、mdm/customer@1.0.8、mdm/product@1.0.9，无破坏性变更。
                                       # v1.0.17：依赖版本号同步跟进 erp/inventory@1.0.15、mdm/customer@1.0.7、mdm/product@1.0.8，无破坏性变更。
                                       # v1.0.16：依赖版本号同步跟进 erp/sales@1.0.22、infra/workflow@1.0.3，无破坏性变更。
@@ -64,10 +65,10 @@ artifacts:
 # 也就不需要发/收事件（设计计划 §4）。
 dependencies:
   components:
-    - { id: mdm/customer@1.0.8, optional: true }
-    - { id: mdm/product@1.0.9, optional: true }
-    - { id: erp/sales@1.0.24, optional: true }
-    - { id: erp/inventory@1.0.16, optional: true }
+    - { id: mdm/customer@1.0.9, optional: true }
+    - { id: mdm/product@1.0.10, optional: true }
+    - { id: erp/sales@1.0.25, optional: true }
+    - { id: erp/inventory@1.0.17, optional: true }
     - { id: infra/workflow@1.0.4, optional: true }
   resources: []
 
@@ -86,7 +87,7 @@ configSchema:
 
 deployment:
   type: container
-  image: brickenterprise/infra-bff-mobile:1.0.18
+  image: brickenterprise/infra-bff-mobile:1.0.19
   port: 8500                          # 端口册 registry/ports.tsv——无 gRPC，只有 HTTP
   labels:                             # 平台只搬运，不解释键值。值必须是字符串
     prometheus.io/scrape: "true"
