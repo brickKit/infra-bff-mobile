@@ -4,7 +4,8 @@ kind: Component
 metadata:
   id: infra/bff-mobile                # ⚠️ Fork 件必须与标准件完全一致（§3.4.1）
   name: 移动端聚合层
-  version: 1.0.19                     # 精确版本，不接受 ^ / ~ / latest。
+  version: 1.0.20                     # 精确版本，不接受 ^ / ~ / latest。
+                                      # v1.0.20：Node 运行时从设计书§12.4 锁定的 Node 20 升级到当前最新维护版 LTS Node 24（05b Task 9 真机验证裸进程时发现，依赖树的 graphql@17、 @prometheus-io/client 已经要求 Node ≥22，原锁定版本已经滞后）。 Dockerfile 两个阶段的基底镜像改成 node:24-slim，package.json 的 engines.node 改成 >=24，node_modules 在 Node 24 下重装、npm run build 与 vitest 单测全部通过，无业务行为/契约变更。
                                       # v1.0.19：依赖版本号同步跟进 erp/inventory@1.0.17、erp/sales@1.0.25、mdm/customer@1.0.9、mdm/product@1.0.10，无破坏性变更。
                                       # v1.0.18：依赖版本号同步跟进 erp/inventory@1.0.16、erp/sales@1.0.24、infra/workflow@1.0.4、mdm/customer@1.0.8、mdm/product@1.0.9，无破坏性变更。
                                       # v1.0.17：依赖版本号同步跟进 erp/inventory@1.0.15、mdm/customer@1.0.7、mdm/product@1.0.8，无破坏性变更。
@@ -87,7 +88,7 @@ configSchema:
 
 deployment:
   type: container
-  image: brickenterprise/infra-bff-mobile:1.0.19
+  image: brickenterprise/infra-bff-mobile:1.0.20
   port: 8500                          # 端口册 registry/ports.tsv——无 gRPC，只有 HTTP
   labels:                             # 平台只搬运，不解释键值。值必须是字符串
     prometheus.io/scrape: "true"
