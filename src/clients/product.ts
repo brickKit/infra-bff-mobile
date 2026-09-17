@@ -75,7 +75,7 @@ function toDTO(raw: RawProduct): ProductDTO {
 
 export async function batchGetProducts(auth: string, ids: readonly string[]): Promise<Array<ProductDTO | undefined>> {
   if (ids.length === 0) return [];
-  const { target, credentials, options } = userClient(auth, DEP_MDM_PRODUCT);
+  const { target, credentials, options } = userClient(auth, DEP_MDM_PRODUCT, "grpc");
   const client = new ProductServiceCtor(target, credentials, options);
   try {
     const res = await callUnary<{ ids: readonly string[] }, BatchGetResponse>(

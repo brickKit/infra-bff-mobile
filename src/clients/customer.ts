@@ -89,7 +89,7 @@ function toDTO(raw: RawCustomer): CustomerDTO {
  */
 export async function batchGetCustomers(auth: string, ids: readonly string[]): Promise<Array<CustomerDTO | undefined>> {
   if (ids.length === 0) return [];
-  const { target, credentials, options } = userClient(auth, DEP_MDM_CUSTOMER);
+  const { target, credentials, options } = userClient(auth, DEP_MDM_CUSTOMER, "grpc");
   const client = new CustomerServiceCtor(target, credentials, options);
   try {
     const res = await callUnary<{ ids: readonly string[] }, BatchGetResponse>(
