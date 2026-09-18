@@ -4,7 +4,8 @@ kind: Component
 metadata:
   id: infra/bff-mobile                # ⚠️ Fork 件必须与标准件完全一致（§3.4.1）
   name: 移动端聚合层
-  version: 1.0.21                     # 精确版本，不接受 ^ / ~ / latest。
+  version: 1.0.22                     # 精确版本，不接受 ^ / ~ / latest。
+                                      # v1.0.22：依赖版本号同步跟进 erp/inventory@1.0.18、erp/sales@1.0.26、mdm/customer@1.0.10、mdm/product@1.0.11，无破坏性变更。
                                       # v1.0.21：修复一个真实的、此前从未被发现的 gRPC 目标端口 bug： batchGetCustomers/batchGetProducts 调 besdk.userClient 时漏传 "grpc" extra 参数，实际读的是 MDM_CUSTOMER_ENDPOINT/ MDM_PRODUCT_ENDPOINT（主 REST 端口 8080/8082）而不是 MDM_CUSTOMER_GRPC_ENDPOINT/MDM_PRODUCT_GRPC_ENDPOINT（gRPC 端口 9090/9092），gRPC 客户端对着一个 HTTP/1.1 REST 服务器做 HTTP/2 握手会失败，报 "14 UNAVAILABLE: Protocol error"。05b Task 9 真机构造了一份真实的 persisted-operations.json 清单，第一次真正走通本组件自己的 GraphQL resolver 到 gRPC 调用这条完整路径时发现——此前全部验证任务都是用 grpcurl 直连绕开本组件的代码，从未真正触发过这条路径，test/clients.test.ts 自己的真机测试说明此前也一直把 gRPC 地址手工塞进 MDM_CUSTOMER_ENDPOINT 这个变量名，凑巧掩盖了这个 bug。修复：customer.ts/product.ts 的 userClient 调用补上 "grpc" 第三参数；test/clients.test.ts 的真机测试改成读正确的 MDM_CUSTOMER_GRPC_ENDPOINT/MDM_PRODUCT_GRPC_ENDPOINT 变量名并重新跑通（3/3 通过，含两条真机子测试）。真机用真实 JWT 走完整 GraphQL persisted-query→resolver→gRPC 链路验证过，返回真实客户数据。
                                       # v1.0.20：Node 运行时从设计书§12.4 锁定的 Node 20 升级到当前最新维护版 LTS Node 24（05b Task 9 真机验证裸进程时发现，依赖树的 graphql@17、 @prometheus-io/client 已经要求 Node ≥22，原锁定版本已经滞后）。 Dockerfile 两个阶段的基底镜像改成 node:24-slim，package.json 的 engines.node 改成 >=24，node_modules 在 Node 24 下重装、npm run build 与 vitest 单测全部通过，无业务行为/契约变更。
                                       # v1.0.19：依赖版本号同步跟进 erp/inventory@1.0.17、erp/sales@1.0.25、mdm/customer@1.0.9、mdm/product@1.0.10，无破坏性变更。
@@ -67,10 +68,10 @@ artifacts:
 # 也就不需要发/收事件（设计计划 §4）。
 dependencies:
   components:
-    - { id: mdm/customer@1.0.9, optional: true }
-    - { id: mdm/product@1.0.10, optional: true }
-    - { id: erp/sales@1.0.25, optional: true }
-    - { id: erp/inventory@1.0.17, optional: true }
+    - { id: mdm/customer@1.0.10, optional: true }
+    - { id: mdm/product@1.0.11, optional: true }
+    - { id: erp/sales@1.0.26, optional: true }
+    - { id: erp/inventory@1.0.18, optional: true }
     - { id: infra/workflow@1.0.4, optional: true }
   resources: []
 
@@ -89,7 +90,7 @@ configSchema:
 
 deployment:
   type: container
-  image: brickenterprise/infra-bff-mobile:1.0.21
+  image: brickenterprise/infra-bff-mobile:1.0.22
   port: 8500                          # 端口册 registry/ports.tsv——无 gRPC，只有 HTTP
   labels:                             # 平台只搬运，不解释键值。值必须是字符串
     prometheus.io/scrape: "true"
