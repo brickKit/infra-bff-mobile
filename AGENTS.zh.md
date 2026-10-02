@@ -63,7 +63,7 @@ make docs-check      # "0 with errors, 0 warnings"
 | 下游 `4xx` 或调用者错误类的 gRPC 状态抛普通 `Error` | 客户端看到 `INTERNAL_SERVER_ERROR`，分不出"重新登录"和"服务挂了"；Yoga 记成 ERROR | 经 `VISIBLE_STATUS` / `VISIBLE_GRPC_STATUS` 映射成 `GraphQLError` |
 | 从上游的工作区拷 vendor 的 `.proto` | 发布前字段号可能还会变；BFF 解码的消息与上游发的不是同一个 | 只从上游的发布 tag 取，并在 `contracts/vendor/SOURCES.tsv` 记下 tag |
 | 照 `.proto` 猜字段名 | `proto-loader` 把 `next_cursor` 变成 `nextCursor`，枚举返回 `PRODUCT_STATUS_ACTIVE` | `keepCase: false`、`enums: String`；前缀用 `stripEnumPrefix` 剥掉 |
-| 用仓库里的空清单构建镜像、指望查询能用 | 每个查询都以 `PersistedQueryOnly` 拒绝（HTTP `400`）；`/healthz` 是绿的 | 只认清单里的哈希；清单由移动端 App 的构建提供，放进镜像或经 `PERSISTED_OPERATIONS_JSON` 给出 |
+| 用仓库里的空清单构建镜像、指望查询能用 | 每个查询都被拒绝：带哈希的请求（App 发的就是这种）回 `PersistedQueryNotFound`，带查询文本的回 `PersistedQueryOnly`，HTTP 都是 `200`；`/healthz` 是绿的 | 只认清单里的哈希；清单由移动端 App 的构建提供，放进镜像或经 `PERSISTED_OPERATIONS_JSON` 给出 |
 | 以为 `PERSISTED_OPERATIONS_JSON` 是在镜像清单上追加 | 只在镜像清单里的查询回 `PersistedQueryNotFound` | 它整份替换镜像里的清单；合并出来的清单没有人审过 |
 
 ## 改代码前自查

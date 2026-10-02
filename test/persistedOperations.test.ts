@@ -142,8 +142,15 @@ describe("持久化查询的边界（不带 token）", () => {
     expect(body.errors?.[0]?.message, JSON.stringify(body)).toMatch(/PersistedQueryNotFound/);
   });
 
-  it("带查询文本的请求：PersistedQueryOnly，不执行", async () => {
+  it("带查询文本的请求：PersistedQueryOnly，HTTP 200，不执行", async () => {
     const res = await bff.post({ query: "{ __typename }" });
+    expect(res.body.data ?? null).toBeNull();
+    expect(res.body.errors?.[0]?.message, JSON.stringify(res.body)).toMatch(/PersistedQueryOnly/);
+    expect(res.status).toBe(200);
+  });
+
+  it("introspection 不例外：查询文本是 introspection 也 PersistedQueryOnly", async () => {
+    const res = await bff.post({ query: "{ __schema { queryType { name } } }" });
     expect(res.body.data ?? null).toBeNull();
     expect(res.body.errors?.[0]?.message, JSON.stringify(res.body)).toMatch(/PersistedQueryOnly/);
   });

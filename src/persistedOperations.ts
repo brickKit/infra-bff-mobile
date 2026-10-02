@@ -6,7 +6,9 @@
  *   `file://<清单文件>`，平台把文件内容注入进来）。它整份替换镜像里的清单，不合并：
  *   两份合并的结果没有人审过。
  * - 否则用镜像里的 `contracts/persisted-operations.json`。仓库里它是空对象，这是
- *   fail-closed 的默认值，不是"关掉限制"：空清单拒绝一切非 introspection 查询。
+ *   fail-closed 的默认值，不是"关掉限制"：空清单拒绝一切查询，introspection 也
+ *   不例外。带哈希的请求回 PersistedQueryNotFound，带查询文本的请求一律回
+ *   PersistedQueryOnly（Yoga 在解析之前就拒绝），两者都是 HTTP 200。
  *
  * 清单是构建期产物（前端构建时生成），启动时读一次，运行期只读：可写的注册表
  * 等于允许任何人注册任意查询，这层限制就白做了。配置给了却不是"字符串到字符串
