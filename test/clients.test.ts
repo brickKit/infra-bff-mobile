@@ -1,22 +1,16 @@
 /**
- * mdm-customer/mdm-product 的 gRPC 客户端——真实容器，真实数据。不
- * mock：连的是本机 `brickkit up` 起的真实 mdm-customer-1-0-3/
- * mdm-product-1-0-3 容器。
+ * mdm-customer / mdm-product 的 gRPC 客户端，对真实容器、真实数据跑，不 mock。
  *
- * ⚠️ 05b Task 9 真机验证时发现：这两个客户端调 `userClient` 一直漏传
- * `"grpc"` 这个 extra 参数，实际读的是 `MDM_CUSTOMER_ENDPOINT`（主
- * REST 端口 8080）而不是 `MDM_CUSTOMER_GRPC_ENDPOINT`（gRPC 端口
- * 9090）——本文件这条注释此前一直写着把 gRPC 端口地址喂给
- * `MDM_CUSTOMER_ENDPOINT` 这个变量名，凑巧掩盖了这个 bug（真机跑这条
- * 测试时手工把 gRPC 地址塞进了错的变量名，两个错误刚好互相抵消）。
- * `src/clients/customer.ts`/`product.ts` 已经修正为传 `"grpc"`，这里
- * 同步改成平台真实会生成的变量名。
+ * 地址变量是 gRPC 端口的 `MDM_CUSTOMER_GRPC_ENDPOINT` / `MDM_PRODUCT_GRPC_ENDPOINT`，
+ * 不是主端口的 `MDM_CUSTOMER_ENDPOINT`：客户端传 extra "grpc" 读的就是前者。
+ * 把 gRPC 地址塞进主端口变量能让漏传 "grpc" 的客户端碰巧连通，两个错误互相
+ * 抵消，所以这里只用平台真实会注入的变量名。
  *
- * 需要设置（真机联调时才跑，本地/CI 没有这些容器时自动跳过）：
+ * 需要设置（真机联调时才跑，没有这些容器时自动跳过）：
  *   MDM_CUSTOMER_GRPC_ENDPOINT=http://<容器IP>:9090
  *   MDM_PRODUCT_GRPC_ENDPOINT=http://<容器IP>:9092
- *   TEST_CUSTOMER_ID=<提前用 grpcurl Create 出来的真实客户 id>
- *   TEST_PRODUCT_ID=<提前用 grpcurl Create 出来的真实产品 id>
+ *   TEST_CUSTOMER_ID=<提前 Create 出来的真实客户 id>
+ *   TEST_PRODUCT_ID=<提前 Create 出来的真实产品 id>
  */
 
 import { describe, expect, it } from "vitest";
@@ -36,9 +30,8 @@ const HAS_FIXTURES = Boolean(
 describe.skipIf(!HAS_FIXTURES)("batchGetCustomers/batchGetProducts（真机）", () => {
   it("真实调 mdm-customer，拿到真实客户；缺失 id 按顺序补 undefined", async () => {
     const { batchGetCustomers } = await import("../src/clients/customer.js");
-    // mdm-customer 的 id 是 bigint（BIGSERIAL），"missing" 也必须是数字
-    // 形状——非数字字符串会在 SQL 层直接报 invalid input syntax，不是
-    // 干净的"查不到"，这条真机测试跑出来才发现（不是看 schema 猜的）。
+    // mdm-customer 的 id 是 bigint，"查不到"的 id 也必须是数字形状：非数字
+    // 字符串在 SQL 层直接报 invalid input syntax，不是干净的"查不到"。
     const result = await batchGetCustomers(config, "", [CUSTOMER_ID, "999999999"]);
 
     expect(result).toHaveLength(2);

@@ -1,7 +1,6 @@
 /**
- * buildSchema 的按装配裁剪逻辑——设计计划 §3.3：没装的组件对应的字段
- * 必须根本不注册（不是注册了返回 null），否则 introspection 会把字段
- * 暴露出去。
+ * buildSchema 的按装配裁剪：没装的组件对应的字段必须根本不注册（不是注册了
+ * 返回 null），否则 introspection 会把字段暴露出去。
  */
 
 import { describe, expect, it } from "vitest";

@@ -1,23 +1,18 @@
 /**
- * 端到端：真实子进程跑 `src/main.ts`（`runStandalone(createModule)`），
- * 真实 JWKS + bundle 服务器，真实打 `/graphql`，真实调 mdm-customer
- * （gRPC 路径）与 infra-workflow/erp-sales（REST 转发路径）——同 be-sdk-ts
- * `standalone.test.ts` 的既有判据：单元测试的构造路径测不出"整条链路
- * 装起来会不会崩"，这次移植过程中真的靠这个思路在 be-sdk-ts 的
- * client.ts 上抓到一个真实 bug（Cannot compose insecure credentials，
- * 见根 docs/dev/实测踩坑记录.md A11）。
+ * 端到端：真实子进程跑 `src/main.ts`（`runStandalone(createModule)`），真实的
+ * JWKS 与 bundle 服务器，真实打 `/graphql`，真实调 mdm-customer（gRPC 路径）
+ * 与 infra-workflow / erp-sales（REST 转发路径）。单元测试的构造路径测不出
+ * "整条链路装起来会不会崩"（例如 grpc-js 拒绝把调用凭据绑到明文通道上，
+ * 只有真的发起一次调用才会抛 `Cannot compose insecure credentials`）。
  *
- * ⚠️ 真机验证过一个容易漏想的点：`persisted_queries_only: true`（§11.4.3
- * 强制）挡在最前面——测试第一版直接发裸 `query` 字符串，拿到的是
- * `PersistedQueryOnly` 错误，HTTP 状态码还是 200（这是查询校验层的拒绝，
- * 不是鉴权层的拒绝，两者互不相干，不能靠状态码区分）。所以这里先把
- * 测试用的查询写进一份临时的 `contracts/persisted-operations.json`
- * （用完恢复成真实的空清单），请求体按 Apollo APQ 的既有格式发
- * `extensions.persistedQuery.sha256Hash`，不发裸 `query`。
+ * `persisted_queries_only` 挡在最前面：直接发裸 `query` 拿到的是
+ * `PersistedQueryOnly` 错误，HTTP 状态码仍是 200（查询校验层的拒绝，与鉴权
+ * 无关，不能靠状态码区分）。所以先把测试用的查询写进临时的
+ * `contracts/persisted-operations.json`（用完恢复成空清单），请求体按 Apollo
+ * APQ 格式发 `extensions.persistedQuery.sha256Hash`。
  *
- * 需要本机已经 `brickkit up` 起了 mdm-customer/infra-workflow 真实容器
- * （见下方 env 硬编码的容器 IP，来自 `docker inspect`）——本地/CI 没有
- * 这些容器时自动跳过。
+ * 需要本机已经起了 mdm-customer / infra-workflow / erp-sales 的真实容器（地址由
+ * 下面的 TEST_* 变量给）；没有这些容器时自动跳过。
  */
 
 import { describe, expect, it } from "vitest";
@@ -72,8 +67,7 @@ describe.skipIf(!HAS_FIXTURES)("infra-bff-mobile 端到端", () => {
     async () => {
       const customerQuery = `{ customer(id: "${TEST_CUSTOMER_ID}") { id name status } }`;
       const tasksQuery = `{ myTasks { tasks { id } nextCursor } }`;
-      // 阶段三计划 Task 11 的验证标准原文点名的组合：一次 GraphQL 查询
-      // 联动 mdm-customer（gRPC）+ erp-sales（REST 转发）两个后端组件。
+      // 一次 GraphQL 查询同时联动 mdm-customer（gRPC）与 erp-sales（REST 转发）。
       const joinedQuery = `{ customer(id: "${TEST_CUSTOMER_ID}") { id name } order(id: "does-not-exist") { orderNo } }`;
 
       const originalManifest = await readFile(MANIFEST_PATH, "utf-8");
@@ -112,9 +106,7 @@ describe.skipIf(!HAS_FIXTURES)("infra-bff-mobile 端到端", () => {
           },
           stdio: ["ignore", "pipe", "pipe"],
         });
-        // 不确定 Yoga 自己对未捕获 resolver 异常的日志走 stdout 还是
-        // stderr（pino 本身配的是 stdout，但 Yoga 内部对这类异常另有
-        // 一层 console.error 风格的打印）——两路都收，够用即可，不细究。
+        // pino 写 stdout，Yoga 对未捕获异常的打印可能走 stderr：两路都收。
         child.stdout?.on("data", (chunk: Buffer) => {
           stderr += chunk.toString();
         });
@@ -160,16 +152,12 @@ describe.skipIf(!HAS_FIXTURES)("infra-bff-mobile 端到端", () => {
 
         // ④ 有权限：myTasks 走 REST 转发，真实打 infra-workflow。
         //
-        // ⚠️ 这条真机测试证明的是转发机制本身，不是"拿到我的待办列表"：
-        // 本组件用假 JWKS（jwks.sign）签的 token 只对本组件自己可信
-        // （iamJwksUrl 指向的就是这个假服务器）；infra-workflow 是真机
-        // 部署的真实容器，验签走的是它自己配置的真实 infra-iam-casdoor
-        // JWKS，认不出这里签的 token，会给一个干净的 401——这恰好是
-        // 想验证的事：Authorization 头**确实原样转发到了 infra-workflow**
-        // （它真的收到了一个 token 并尝试验签，不是"头根本没送到"或者
-        // "URL 拼错了连不上"），只是两边对 token 的信任根不同这一点，
-        // 本测试没有能力（也不需要）用真实 Casdoor 登录去补——那是
-        // Task 14 全链路联调时才有意义的事。
+        // 这一步证明的是转发本身，不是"拿到我的待办"：假 JWKS 签的 token 只有
+        // 本组件信（IAM_JWKS_URL 指向假服务器）；infra-workflow 是真实容器，
+        // 用真实 IAM 的 JWKS 验签，认不出它，回一个干净的 401。拿到 401 恰好
+        // 说明 Authorization 头确实原样送到了 infra-workflow（它收到 token 并
+        // 尝试验签），而不是头没送到或地址拼错连不上。用真实登录拿 token 是
+        // 全栈联调的事。
         const tasksResp = await fetch(graphqlUrl, {
           method: "POST",
           headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
@@ -181,19 +169,14 @@ describe.skipIf(!HAS_FIXTURES)("infra-bff-mobile 端到端", () => {
           errors: Array<{ path: string[]; message: string }>;
         };
         expect(tasksBody.errors?.[0]?.path).toEqual(["myTasks"]);
-        // 客户端看到的是 Yoga 默认掩盖过的 "Unexpected error."（下游
-        // REST 调用失败属于"真正的意外错误"，该被掩盖，同 requirePermission
-        // 模块文档说的"401/403 该让调用方看见、未捕获异常该掩盖"是同一
-        // 条判据）——真正的根因走 stderr（子进程真实日志），断言那里
-        // 出现的是 401（REST 转发确实发生并拿到了服务端响应），不是
-        // 连接被拒绝/DNS 解析失败这类"根本没打到 infra-workflow"的错误。
+        // 下游拒绝的原因写在子进程日志里：断言那里出现的是 401（转发确实发生、
+        // 拿到了对方的响应），不是连接被拒绝 / 名称解析失败这类根本没打到
+        // infra-workflow 的错误。
         expect(stderr).toContain("infra/workflow /infra/workflow/tasks 返回 401");
 
-        // ⑤ 一次 GraphQL 查询联动 mdm-customer + erp-sales（阶段三计划
-        // Task 11 验证标准原文点名的组合）：同一个请求里 customer 走
-        // gRPC 真实拿到数据，order 走 REST 转发真实打到 erp-sales——
-        // 两条完全不同的数据路径在同一次 GraphQL 执行里都被真实触发，
-        // 不是分两次请求各测一半。
+        // ⑤ 一次 GraphQL 查询联动 mdm-customer 与 erp-sales：同一个请求里
+        // customer 走 gRPC 拿到真实数据，order 走 REST 转发打到 erp-sales，
+        // 两条数据路径在同一次执行里都被真实触发。
         const joinedResp = await fetch(graphqlUrl, {
           method: "POST",
           headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
@@ -205,10 +188,8 @@ describe.skipIf(!HAS_FIXTURES)("infra-bff-mobile 端到端", () => {
           errors?: Array<{ path: string[] }>;
         };
         expect(joinedBody.data?.customer?.id).toBe(TEST_CUSTOMER_ID);
-        // order 字段同 ④ 的既有判据：erp-sales 是真实容器，验签走真实
-        // infra-iam-casdoor，认不出这里的假 token，REST 转发确实发生
-        // 但被下游拒绝——customer 那一半不受影响照样返回真实数据，
-        // 证明两条路径互不干扰，一次查询里能同时联动两个组件。
+        // order 与 ④ 同理：erp-sales 认不出假 token，转发发生但被拒绝；
+        // customer 那一半照样返回真实数据，两条路径互不干扰。
         expect(joinedBody.errors?.some((e) => e.path?.[0] === "order")).toBe(true);
 
         // ⑥ 一个没在清单里的哈希：拒绝，不是"随便什么查询都放行"。
