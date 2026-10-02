@@ -20,9 +20,10 @@
 #     下游判。走 gRPC 就绕开了数据权限：传一个别人的 id 就能看到别人的数据。
 #
 # 写操作只有待办的同意 / 驳回：纯转发，带调用方给的幂等键，不在本组件里编排
-# 多个下游。下游拒绝时字段上的错误带 extensions.code：UNAUTHENTICATED
-# （下游不认这个 token，重新登录）、FORBIDDEN、NOT_FOUND、CONFLICT（状态已
-# 变，刷新）、BAD_USER_INPUT；其余失败对客户端显示为通用错误，原因在日志里。
+# 多个下游。下游（REST 或 gRPC）拒绝时字段上的错误带 extensions.code：
+# UNAUTHENTICATED（下游不认这个 token，重新登录）、FORBIDDEN、NOT_FOUND、
+# CONFLICT（状态已变，刷新）、BAD_USER_INPUT；其余失败对客户端显示为通用错误，
+# 原因在日志里。
 
 scalar DateTime
 
@@ -66,7 +67,9 @@ type Query {
 
 type Mutation {
   # ── infra-workflow：同意 / 驳回一条待办，返回处理后的详情（含 actions） ──
-  # idempotencyKey 由客户端生成、每次用户操作一个，重试时原样再发。
+  # idempotencyKey 由客户端生成、每次用户操作一个，重试时原样再发；本组件原样
+  # 转发（body 的 idempotency_key）。待办只能从待处理状态被处理一次：第一次已经
+  # 成功时，重试得到 CONFLICT，刷新即可，不会处理两次。
   approveTask(id: ID!, comment: String, idempotencyKey: String!): Task!
   # 驳回必须带附言：发起人要知道该改什么。
   rejectTask(id: ID!, comment: String!, idempotencyKey: String!): Task!
