@@ -1,9 +1,17 @@
 /**
- * mdm-product：`data_scopes: none`，经 per-request DataLoader 合并成一次 gRPC BatchGet。
+ * mdm-product：`data_scopes: none`。按 id 取经 per-request DataLoader 合并成一次
+ * gRPC BatchGet；关键字搜索直接调 gRPC List。
  */
 
 import { requirePermission } from "besdk";
+import { searchProducts } from "../clients/product.js";
 import type { AppContext } from "../context.js";
+
+interface SearchArgs {
+  keyword: string;
+  cursor?: string;
+  pageSize?: number;
+}
 
 export const productResolvers = {
   product: requirePermission(
@@ -17,5 +25,10 @@ export const productResolvers = {
     "infra.bff-mobile.product.view",
     async (_source: unknown, args: { ids: string[] }, context: AppContext) =>
       context.productLoader.loadMany(args.ids),
+  ),
+  searchProducts: requirePermission(
+    "infra.bff-mobile.product.view",
+    async (_source: unknown, args: SearchArgs, context: AppContext) =>
+      searchProducts(context.config, context.auth, { q: args.keyword, cursor: args.cursor, pageSize: args.pageSize }),
   ),
 };

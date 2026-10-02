@@ -89,3 +89,36 @@ export async function batchGetProducts(
     client.close();
   }
 }
+
+interface ListResponse {
+  products: RawProduct[];
+  nextCursor: string;
+}
+
+export interface ProductSearch {
+  q: string;
+  cursor?: string;
+  pageSize?: number;
+}
+
+/**
+ * 按关键字找产品（List 的 q）：匹配 sku 或 name，前缀匹配排在前面。List 带着
+ * mdm-product 的默认时间窗口，本组件不放宽它。
+ */
+export async function searchProducts(
+  config: Config,
+  auth: string,
+  search: ProductSearch,
+): Promise<{ products: ProductDTO[]; nextCursor: string }> {
+  const client = newClient(config, auth);
+  try {
+    const res = await callUnary<Record<string, unknown>, ListResponse>(
+      client as unknown as { [method: string]: unknown },
+      "List",
+      { q: search.q, cursor: search.cursor ?? "", pageSize: search.pageSize ?? 0 },
+    );
+    return { products: res.products.map(toDTO), nextCursor: res.nextCursor };
+  } finally {
+    client.close();
+  }
+}
