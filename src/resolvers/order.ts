@@ -87,13 +87,14 @@ export const orderResolvers = {
     "infra.bff-mobile.order.view",
     async (
       _source: unknown,
-      args: { cursor?: string; pageSize?: number; statusFilter?: string },
+      args: { cursor?: string; pageSize?: number; statusFilter?: string; customerId?: string },
       context: AppContext,
     ) => {
       const params = new URLSearchParams();
       if (args.cursor) params.set("cursor", args.cursor);
       if (args.pageSize) params.set("page_size", String(args.pageSize));
       if (args.statusFilter) params.set("status_filter", args.statusFilter);
+      if (args.customerId) params.set("customer_id", args.customerId);
       const query = params.toString();
       const path = `/erp/sales/orders${query ? `?${query}` : ""}`;
 
