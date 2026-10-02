@@ -6,7 +6,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { startBff, startHttpStub, type BffProcess, type HttpStub } from "./harness.js";
+import { logsAfter, startBff, startHttpStub, type BffProcess, type HttpStub } from "./harness.js";
 
 const MY_TASKS = `query MyTasks($status: TaskStatus) { myTasks(status: $status) { nextCursor } }`;
 
@@ -39,7 +39,7 @@ describe("下游拒绝的透传", () => {
     const res = await bff.run(MY_TASKS, { token, variables: { status: "PENDING" } });
     expect(res.body.errors?.[0]?.path).toEqual(["myTasks"]);
     expect(res.body.errors?.[0]?.extensions?.code).toBe("UNAUTHENTICATED");
-    expect(bff.logs()).toContain("infra/workflow /infra/workflow/tasks?status=PENDING 返回 401");
+    expect(await logsAfter(bff, 0, "infra/workflow /infra/workflow/tasks?status=PENDING 返回 401")).toContain("infra/workflow /infra/workflow/tasks?status=PENDING 返回 401");
   });
 
   it("调用者能处理的拒绝（4xx）不记 ERROR：访问日志与指标已经记下状态码", async () => {
@@ -64,6 +64,6 @@ describe("下游拒绝的透传", () => {
     const res = await bff.run(MY_TASKS, { token, variables: { status: "REJECTED" } });
     expect(res.body.errors?.[0]?.message).toBe("Unexpected error.");
     expect(JSON.stringify(res.body)).not.toContain("下游内部细节");
-    expect(bff.logs()).toContain("infra/workflow /infra/workflow/tasks?status=REJECTED 返回 500");
+    expect(await logsAfter(bff, 0, "infra/workflow /infra/workflow/tasks?status=REJECTED 返回 500")).toContain("infra/workflow /infra/workflow/tasks?status=REJECTED 返回 500");
   });
 });

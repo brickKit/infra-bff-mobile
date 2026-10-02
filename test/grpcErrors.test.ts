@@ -10,6 +10,7 @@ import * as grpc from "@grpc/grpc-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   errorLogLines,
+  logsAfter,
   grpcError,
   startBff,
   startProductGrpcStub,
@@ -71,7 +72,7 @@ describe("gRPC 下游拒绝的透传", () => {
     expect(res.body.errors?.[0]?.extensions?.code).toBe(code);
     expect(res.body.errors?.[0]?.extensions?.downstreamGrpcCode).toBe(grpcCode);
     expect(JSON.stringify(res.body)).not.toContain("下游内部细节");
-    const after = bff.logs().slice(before);
+    const after = await logsAfter(bff, before, `mdm/product List 返回 ${grpcCode}`);
     expect(after).toContain(`mdm/product List 返回 ${grpcCode}`);
     expect(errorLogLines(after)).toEqual([]);
   });
@@ -90,6 +91,6 @@ describe("gRPC 下游拒绝的透传", () => {
     const res = await search("down");
     expect(res.body.errors?.[0]?.message).toBe("Unexpected error.");
     expect(JSON.stringify(res.body)).not.toContain("下游内部细节");
-    expect(bff.logs().slice(before)).toContain("mdm/product List 返回 UNAVAILABLE");
+    expect(await logsAfter(bff, before, "mdm/product List 返回 UNAVAILABLE")).toContain("mdm/product List 返回 UNAVAILABLE");
   });
 });

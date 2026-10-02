@@ -151,6 +151,25 @@ export function errorLogLines(logs: string): string[] {
   });
 }
 
+/**
+ * 子进程从 `since`（`logs().length` 的快照）之后的输出，等到里面出现 `text` 再返回，
+ * 最多等 `timeoutMs`（等不到就返回当时的输出，交给调用方的断言去报错）。
+ * 日志经管道异步到达，可能比 HTTP 响应晚：响应一回来就截取，偶尔截不到这一行。
+ */
+export async function logsAfter(
+  bff: Pick<BffProcess, "logs">,
+  since: number,
+  text: string,
+  timeoutMs = 5000,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const out = bff.logs().slice(since);
+    if (out.includes(text) || Date.now() >= deadline) return out;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}
+
 /** 起一个 mdm-product 的 gRPC 桩，只实现 `impl` 里给的方法；proto 用随仓库携带的那份。 */
 export async function startProductGrpcStub(impl: Record<string, UnaryImpl>): Promise<GrpcStub> {
   const def = loadSync(join(PKG_ROOT, "contracts/vendor/mdm/product/v1/product.proto"), {
