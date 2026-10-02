@@ -1,9 +1,6 @@
 /**
- * erp-inventory——走 REST 转发（`GET /erp/inventory/balances`），不走
- * gRPC：warehouse 维数据权限（mode: in）只在 REST 面生效（同
- * task.ts/order.ts 的既有判据）。⚠️ 没有批量端点，`inventoryBalance`
- * 因此不提供 DataLoader 批量版本，见 contracts/schema.graphql 顶部
- * 注释。
+ * erp-inventory：走 REST 转发，不走 gRPC——仓库维的数据权限（`mode: in`）只在
+ * 对方 REST 面生效。
  */
 
 import { requirePermission } from "besdk";
@@ -20,7 +17,7 @@ interface RawBalance {
   version: number;
 }
 
-function toDTO(raw: RawBalance) {
+function balanceToDTO(raw: RawBalance) {
   return {
     productId: raw.product_id,
     warehouseId: raw.warehouse_id,
@@ -31,25 +28,16 @@ function toDTO(raw: RawBalance) {
   };
 }
 
+async function getBalance(args: { productId: string; warehouseId: string }, context: AppContext) {
+  const params = new URLSearchParams({ product_id: args.productId, warehouse_id: args.warehouseId });
+  const raw = (await forwardGet(context, DEP_ERP_INVENTORY, `/erp/inventory/balances?${params}`)) as RawBalance | null;
+  return raw ? balanceToDTO(raw) : null;
+}
+
 export const inventoryResolvers = {
   inventoryBalance: requirePermission(
     "infra.bff-mobile.inventory.view",
-    async (
-      _source: unknown,
-      args: { productId: string; warehouseId: string },
-      context: AppContext,
-    ) => {
-      const params = new URLSearchParams({
-        product_id: args.productId,
-        warehouse_id: args.warehouseId,
-      });
-      const raw = (await forwardGet(
-        context.config,
-        DEP_ERP_INVENTORY,
-        context.auth,
-        `/erp/inventory/balances?${params.toString()}`,
-      )) as RawBalance | null;
-      return raw ? toDTO(raw) : null;
-    },
+    async (_source: unknown, args: { productId: string; warehouseId: string }, context: AppContext) =>
+      getBalance(args, context),
   ),
 };

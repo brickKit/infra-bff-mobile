@@ -1,14 +1,11 @@
 /**
- * Persisted Operations 清单——构建期产物，前端构建时生成、随本组件的
- * 镜像发布（设计计划 §3.4，§9 待决问题 3：两个仓库的版本要配套发布，
- * 留给部署手册记）。运行时**只读**，不是运行时可写的注册表——运行时
- * 可写就意味着有人能注册任意查询，等于没做这层限制（设计计划 §2）。
+ * Persisted Operations 清单：构建期产物（哈希 → 查询文本），由前端构建时生成、
+ * 随本组件镜像发布，所以前端与本组件的版本要配套发布。运行期只读：可写的
+ * 注册表等于允许任何人注册任意查询，这层限制就白做了。
  *
- * ⚠️ 清单文件目前是空对象——还没有真实前端构建产出这份清单（`frontend-
- * standard` 是阶段三 Task 12，在本组件之后）。空清单不是"关掉这道
- * 限制"，而是这道限制天然的 fail-closed 默认值：`persisted_queries_
- * only: true` 意味着没在清单里的哈希一律拒绝，空清单 = 拒绝一切非
- * introspection 查询，等前端真的产出清单再替换这个文件，不需要改代码。
+ * 仓库里的清单是空对象，这是 fail-closed 的默认值，不是"关掉限制"：
+ * 只认清单里的哈希，空清单就拒绝一切非 introspection 查询；前端产出清单后
+ * 替换这个文件即可，不用改代码。
  */
 
 import { readFileSync, existsSync } from "node:fs";
@@ -24,8 +21,7 @@ function loadManifest(): Record<string, string> {
   return JSON.parse(raw) as Record<string, string>;
 }
 
-// 启动时读一次——同 Persisted Operations 的既有心智模型：构建期产物，
-// 不是运行时会变的东西，没必要每次请求都重新读文件。
+// 启动时读一次：清单是构建期产物，运行期不会变，不必每次请求重读。
 const manifest = loadManifest();
 
 export function getPersistedOperation(key: string): string | null {

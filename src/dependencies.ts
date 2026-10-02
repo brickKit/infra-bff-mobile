@@ -1,10 +1,10 @@
 /**
- * 每个 Query 字段归哪个弱依赖——`schema.ts` 按这张表在构建 schema 时
- * 裁剪掉没装的组件对应的字段（设计计划 §3.3）。
+ * 每个 Query 字段归哪个可选依赖：`schema.ts` 按这张表在构建 schema 时裁掉
+ * 这次装配没有的组件对应的字段。
  *
- * ⚠️ 新增一个 Query 字段时必须同步在这里登记，否则它永远不会被裁剪掉
- * ——没装对应组件时前端 introspection 还是能看到这个字段，症状正是
- * 设计计划 §3.3 点名的"页面空白但不报错"。
+ * ⚠️ 新增字段必须在这里登记，否则它永远不会被裁掉：没装对应组件时前端
+ * introspection 照样看得到它，按 schema 写了查询、运行时永远拿到 null，
+ * 症状是"页面空白但不报错"。
  */
 
 import type { Config } from "besdk";
@@ -36,7 +36,7 @@ export const FIELD_TO_DEPENDENCY: Record<string, DependencyId> = {
   myTasks: DEP_INFRA_WORKFLOW,
 };
 
-/** 读一遍全部弱依赖的 `*_ENDPOINT`，返回这个装配环境里真的装了哪些。 */
+/** 看这次装配里每个可选依赖的地址有没有注入（缺席的依赖不注入任何变量），返回装了哪些。 */
 export function resolveAvailableDependencies(config: Config): Set<DependencyId> {
   const available = new Set<DependencyId>();
   for (const dep of ALL_DEPENDENCIES) {

@@ -1,7 +1,6 @@
 /**
- * erp-sales——走 REST 转发（`GET /erp/sales/orders[/{id}]`），不走
- * gRPC：org/owner 两维数据权限只在 REST 面生效（同 task.ts 的既有
- * 判据）。
+ * erp-sales：走 REST 转发（`GET /erp/sales/orders[/{id}]`），不走 gRPC——
+ * org / owner 两维数据权限只在对方 REST 面生效。
  */
 
 import { requirePermission } from "besdk";
@@ -80,7 +79,7 @@ export const orderResolvers = {
   order: requirePermission(
     "infra.bff-mobile.order.view",
     async (_source: unknown, args: { id: string }, context: AppContext) => {
-      const raw = (await forwardGet(context.config, DEP_ERP_SALES, context.auth, `/erp/sales/orders/${args.id}`)) as RawOrder | null;
+      const raw = (await forwardGet(context, DEP_ERP_SALES, `/erp/sales/orders/${args.id}`)) as RawOrder | null;
       return raw ? toDTO(raw) : null;
     },
   ),
@@ -98,7 +97,7 @@ export const orderResolvers = {
       const query = params.toString();
       const path = `/erp/sales/orders${query ? `?${query}` : ""}`;
 
-      const res = (await forwardGet(context.config, DEP_ERP_SALES, context.auth, path)) as OrderListResponse;
+      const res = (await forwardGet(context, DEP_ERP_SALES, path)) as OrderListResponse;
       return {
         orders: res.orders.map(toDTO),
         nextCursor: res.next_cursor,

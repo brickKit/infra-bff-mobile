@@ -1,7 +1,7 @@
 /**
- * 全部 resolver 的汇总——本目录不放别的东西（设计计划 §9 待决问题 1）：
- * `make gates` 的裸 resolver 扫描认的就是这个目录，每个字段值必须是
- * `requirePermission(...)` 包过的，扫描器按这条判违规。
+ * 全部 resolver 的汇总。本目录只放 resolver：`make gates` 的 bare-route-scan 与
+ * `make module-check` 扫的就是这个目录，每个字段的值都必须是
+ * `requirePermission(...)` 包过的。
  */
 
 import type { IResolvers } from "@graphql-tools/utils";

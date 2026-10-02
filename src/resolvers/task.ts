@@ -1,7 +1,6 @@
 /**
- * infra-workflow——走 REST 转发（`GET /infra/workflow/tasks`），不走
- * gRPC：owner/org 两维数据权限只在 REST 面生效（设计计划 §1 的
- * `data_scopes` 表；见 contracts/schema.graphql 顶部注释与 AGENTS.md）。
+ * infra-workflow：走 REST 转发，不走 gRPC——owner / org 两维数据权限只在对方
+ * REST 面生效。
  */
 
 import { requirePermission } from "besdk";
@@ -16,7 +15,7 @@ interface RawTask {
   assignee_sub: string;
   assignee_dept_path: string;
   title: string;
-  summary: unknown; // REST 面已解析成 JSON 对象（gRPC 侧是原始字符串 summary_json）
+  summary: unknown; // REST 面已解析成 JSON 对象（gRPC 面是原始字符串 summary_json）
   source_component: string;
   source_aggregate: string;
   source_id: string;
@@ -31,7 +30,7 @@ interface TaskListResponse {
   next_cursor: string;
 }
 
-function toDTO(raw: RawTask) {
+function taskToDTO(raw: RawTask) {
   return {
     id: raw.id,
     type: raw.type,
@@ -39,9 +38,8 @@ function toDTO(raw: RawTask) {
     assigneeSub: raw.assignee_sub,
     assigneeDeptPath: raw.assignee_dept_path,
     title: raw.title,
-    // 原样透传成字符串——本组件不理解 summary 的业务含义，只是把 REST
-    // 面已解析的对象重新变回 GraphQL schema 约定的 JSON 字符串（同
-    // gRPC 侧 summary_json 字段的既有语义，见上方类型注释）。
+    // 原样变回字符串：本组件不理解 summary 的业务含义，schema 约定它是 JSON
+    // 字符串、前端自己解析（与 gRPC 面 summary_json 的语义一致）。
     summaryJson: JSON.stringify(raw.summary ?? {}),
     sourceComponent: raw.source_component,
     sourceAggregate: raw.source_aggregate,
@@ -60,23 +58,21 @@ interface MyTasksArgs {
   status?: string;
 }
 
+async function listMyTasks(args: MyTasksArgs, context: AppContext) {
+  const params = new URLSearchParams();
+  if (args.cursor) params.set("cursor", args.cursor);
+  if (args.pageSize) params.set("page_size", String(args.pageSize));
+  if (args.type) params.set("type", args.type);
+  if (args.status) params.set("status", args.status);
+  const query = params.toString();
+  const path = `/infra/workflow/tasks${query ? `?${query}` : ""}`;
+  const res = (await forwardGet(context, DEP_INFRA_WORKFLOW, path)) as TaskListResponse;
+  return { tasks: res.tasks.map(taskToDTO), nextCursor: res.next_cursor };
+}
+
 export const taskResolvers = {
   myTasks: requirePermission(
     "infra.bff-mobile.task.view",
-    async (_source: unknown, args: MyTasksArgs, context: AppContext) => {
-      const params = new URLSearchParams();
-      if (args.cursor) params.set("cursor", args.cursor);
-      if (args.pageSize) params.set("page_size", String(args.pageSize));
-      if (args.type) params.set("type", args.type);
-      if (args.status) params.set("status", args.status);
-      const query = params.toString();
-      const path = `/infra/workflow/tasks${query ? `?${query}` : ""}`;
-
-      const res = (await forwardGet(context.config, DEP_INFRA_WORKFLOW, context.auth, path)) as TaskListResponse;
-      return {
-        tasks: res.tasks.map(toDTO),
-        nextCursor: res.next_cursor,
-      };
-    },
+    async (_source: unknown, args: MyTasksArgs, context: AppContext) => listMyTasks(args, context),
   ),
 };

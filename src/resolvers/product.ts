@@ -1,3 +1,7 @@
+/**
+ * mdm-product：`data_scopes: none`，经 per-request DataLoader 合并成一次 gRPC BatchGet。
+ */
+
 import { requirePermission } from "besdk";
 import type { AppContext } from "../context.js";
 

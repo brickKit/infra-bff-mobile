@@ -1,11 +1,11 @@
 /**
- * mdm-product gRPC 客户端——同 customer.ts 的既有判据：`data_scopes:
- * none`，但用户请求路径上仍然用 `userClient`（导读第 21 条）。
+ * mdm-product gRPC 客户端。产品主数据与客户一样是 `data_scopes: none`，走
+ * gRPC；用户请求路径上同样只用 `userClient`（理由见 customer.ts）。
  */
 
 import type { ServiceClientConstructor } from "@grpc/grpc-js";
 import { userClient, type Config } from "besdk";
-import { callUnary, loadVendorProto } from "./grpcProto.js";
+import { callUnary, loadVendorProto, stripEnumPrefix, timestampToISOString, type ProtoTimestamp } from "./grpcProto.js";
 import { DEP_MDM_PRODUCT } from "../dependencies.js";
 
 const proto = loadVendorProto("mdm/product/v1/product.proto");
@@ -39,22 +39,13 @@ interface RawProduct {
   standardCost: string;
   status: string; // "PRODUCT_STATUS_ACTIVE" 等
   version: number;
-  createdAt: { seconds: number; nanos: number } | null;
-  updatedAt: { seconds: number; nanos: number } | null;
+  createdAt: ProtoTimestamp | null;
+  updatedAt: ProtoTimestamp | null;
 }
 
 interface BatchGetResponse {
   products: RawProduct[];
   missingIds: string[];
-}
-
-function timestampToISOString(ts: { seconds: number; nanos: number } | null): string {
-  if (!ts) return new Date(0).toISOString();
-  return new Date(ts.seconds * 1000 + Math.floor(ts.nanos / 1e6)).toISOString();
-}
-
-function stripEnumPrefix(prefix: string, value: string): string {
-  return value.startsWith(prefix) ? value.slice(prefix.length) : value;
 }
 
 function toDTO(raw: RawProduct): ProductDTO {
@@ -73,14 +64,19 @@ function toDTO(raw: RawProduct): ProductDTO {
   };
 }
 
+function newClient(config: Config, auth: string) {
+  const { target, credentials, options } = userClient(config, auth, DEP_MDM_PRODUCT, "grpc");
+  return new ProductServiceCtor(target, credentials, options);
+}
+
+/** DataLoader 的 batchGet 函数，形状要求同 customer.ts 的 batchGetCustomers。 */
 export async function batchGetProducts(
   config: Config,
   auth: string,
   ids: readonly string[],
 ): Promise<Array<ProductDTO | undefined>> {
   if (ids.length === 0) return [];
-  const { target, credentials, options } = userClient(config, auth, DEP_MDM_PRODUCT, "grpc");
-  const client = new ProductServiceCtor(target, credentials, options);
+  const client = newClient(config, auth);
   try {
     const res = await callUnary<{ ids: readonly string[] }, BatchGetResponse>(
       client as unknown as { [method: string]: unknown },
