@@ -4,7 +4,7 @@
  */
 
 import { requirePermission } from "besdk";
-import { forwardGet } from "../clients/restForward.js";
+import { forwardGet, segment } from "../clients/restForward.js";
 import { DEP_ERP_SALES } from "../dependencies.js";
 import type { AppContext } from "../context.js";
 
@@ -79,7 +79,7 @@ export const orderResolvers = {
   order: requirePermission(
     "infra.bff-mobile.order.view",
     async (_source: unknown, args: { id: string }, context: AppContext) => {
-      const raw = (await forwardGet(context, DEP_ERP_SALES, `/erp/sales/orders/${args.id}`)) as RawOrder | null;
+      const raw = (await forwardGet(context, DEP_ERP_SALES, `/erp/sales/orders/${segment(args.id)}`)) as RawOrder | null;
       return raw ? toDTO(raw) : null;
     },
   ),

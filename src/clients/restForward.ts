@@ -28,6 +28,14 @@ export class RestForwardError extends Error {
   }
 }
 
+/**
+ * 把调用方给的 id 编码成一段路径。不编码时 `order(id: "7?view=all")` 会把
+ * `?` 之后变成查询参数、`../` 会改写路径，调用者借此拼出契约之外的请求。
+ */
+export function segment(id: string): string {
+  return encodeURIComponent(id);
+}
+
 function baseUrl(caller: Caller, dep: DependencyId): string {
   const { value: host, ok } = caller.config.endpoint(dep);
   if (!ok) {
