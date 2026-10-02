@@ -79,6 +79,8 @@ export async function batchGetProducts(
   const client = newClient(caller);
   try {
     const res = await callUnary<{ ids: readonly string[] }, BatchGetResponse>(
+      caller,
+      DEP_MDM_PRODUCT,
       client as unknown as { [method: string]: unknown },
       "BatchGet",
       { ids },
@@ -112,6 +114,8 @@ export async function searchProducts(
   const client = newClient(caller);
   try {
     const res = await callUnary<Record<string, unknown>, ListResponse>(
+      caller,
+      DEP_MDM_PRODUCT,
       client as unknown as { [method: string]: unknown },
       "List",
       { q: search.q, cursor: search.cursor ?? "", pageSize: search.pageSize ?? 0 },

@@ -88,6 +88,8 @@ export async function batchGetCustomers(
   const client = new CustomerServiceCtor(target, credentials, options);
   try {
     const res = await callUnary<{ ids: readonly string[] }, BatchGetResponse>(
+      caller,
+      DEP_MDM_CUSTOMER,
       client as unknown as { [method: string]: unknown },
       "BatchGet",
       { ids },

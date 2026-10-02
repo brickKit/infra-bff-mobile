@@ -122,6 +122,27 @@ export interface GrpcStub {
 
 type UnaryImpl = (request: Record<string, unknown>) => Record<string, unknown>;
 
+/** 让桩回一个 gRPC 错误状态：在 UnaryImpl 里 `throw grpcError(grpc.status.INVALID_ARGUMENT, "…")`。 */
+export function grpcError(code: grpc.status, details: string): Partial<grpc.ServiceError> {
+  return { code, details, message: details };
+}
+
+/**
+ * 子进程输出里记成 ERROR 的行：SDK 的 JSON 日志 level 为 error，或 Yoga 自带
+ * logger 的 `ERR` 前缀行（Yoga 掩盖意外错误时用它记原始错误）。
+ */
+export function errorLogLines(logs: string): string[] {
+  return logs.split("\n").filter((line) => {
+    if (line.includes("ERR\x1b[0m")) return true;
+    try {
+      const level = (JSON.parse(line) as { level?: unknown }).level;
+      return level === "error" || level === 50;
+    } catch {
+      return false;
+    }
+  });
+}
+
 /** 起一个 mdm-product 的 gRPC 桩，只实现 `impl` 里给的方法；proto 用随仓库携带的那份。 */
 export async function startProductGrpcStub(impl: Record<string, UnaryImpl>): Promise<GrpcStub> {
   const def = loadSync(join(PKG_ROOT, "contracts/vendor/mdm/product/v1/product.proto"), {
@@ -142,7 +163,16 @@ export async function startProductGrpcStub(impl: Record<string, UnaryImpl>): Pro
         request: call.request,
         authorization: String(call.metadata.get("authorization")[0] ?? ""),
       });
-      cb(null, fn(call.request));
+      try {
+        cb(null, fn(call.request));
+      } catch (err) {
+        // 桩要回 gRPC 错误时 throw grpcError(...)：带数字 code 的对象原样作为状态回给调用方
+        if (err && typeof (err as { code?: unknown }).code === "number") {
+          cb(err as grpc.ServiceError);
+          return;
+        }
+        throw err;
+      }
     };
   }
   const server = new grpc.Server();
