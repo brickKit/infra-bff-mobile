@@ -1,30 +1,28 @@
-# infra-bff-mobile · 手写 GraphQL schema（设计计划 §3.1）
+# infra-bff-mobile：手写 GraphQL schema，本组件唯一的对外契约
 #
-# ⚠️ 不是从任何 .proto 生成的——按前端页面裁剪，不是 62 个组件契约的机械
-# 并集（设计计划 §3.1）。字段直接对应各后端组件 proto/openapi 里已有的
-# 字段（camelCase 化），不做额外加工/计算。
+# 不是从任何 .proto 生成的：按移动端页面裁剪，不是各组件契约的机械并集。字段
+# 直接对应各后端组件契约里已有的字段（camelCase 化），不做额外加工或计算。
 #
-# ⚠️ 装配时按弱依赖是否装配裁剪：这个环境没装的组件，对应的字段在构建
-# schema 时**根本不注册**，不是注册了返回 null（设计计划 §3.3——否则
-# introspection 会把字段暴露出去，前端按 schema 写了查询、运行时永远拿
-# null，症状是"页面空白但不报错"）。这份 .graphql 文件是**全量**版本
-# （所有弱依赖都装配时的完整 schema），`src/schema.ts` 在启动时按实际
-# 装配情况裁剪出一份子集。
+# 装配时按可选依赖裁剪：这次装配没有的组件，对应的 Query / Mutation 字段在
+# 构建 schema 时根本不注册（不是注册了返回 null）——否则 introspection 会把
+# 字段暴露出去，前端按 schema 写了查询、运行时永远拿到 null，"页面空白但不
+# 报错"。本文件是全量版本（所有可选依赖都在时的 schema），`src/schema.ts`
+# 启动时按实际装配裁出子集；一个 Mutation 都不剩时整个 Mutation 类型不出现。
 #
-# ⚠️ 两类读的权限模型不同，判据是"这个组件的 assembly.yaml 有没有真
-# data_scopes"（阶段三 Task 11 的一次真实设计决策，用户在权限缺口被
-# 发现时明确拍的板，见 AGENTS.md「这个组件特有的坑」）：
-#   - customer/product：mdm-customer/mdm-product 的 data_scopes: none
-#     （全员可见），走 gRPC BatchGet，DataLoader 防 N+1。
-#   - order/myOrders、inventoryBalance、myTasks：erp-sales（org/owner）、
-#     erp-inventory（warehouse，mode: in）、infra-workflow（org/owner）
-#     都有真实数据权限，而全项目的 gRPC 组件间协议统一不做数据权限过滤
-#     （真正的过滤只在各自 REST 面的 besdk.ScopeOf 生效）——这三类字段
-#     改走 REST（原样转发 Authorization 头），不走 gRPC，否则会绕开数据
-#     权限（query 里传一个 id 就能看到别人的）。⚠️ 代价：erp-inventory
-#     的 `GET /balances` 只有单条查询，没有批量端点——`inventoryBalance`
-#     因此**不提供** DataLoader 批量版本，同 `order(id)` 一样是"给定
-#     已知 id 查一条"，不是"列出我的全部"，不强求防 N+1。
+# 两类读的权限模型不同，判据是数据来源组件有没有真实的数据范围：
+#   - customer / product / searchProducts：mdm-customer、mdm-product 是
+#     data_scopes: none（全员可见），走 gRPC（BatchGet + DataLoader 防 N+1，
+#     搜索走 List 的 q）。
+#   - 订单、库存、待办、通知、商机：erp-sales（org/owner）、erp-inventory
+#     （warehouse）、infra-workflow（org/owner）、infra-notification（owner）、
+#     crm-opportunity（org/owner）都有真实数据范围，而组件之间的 gRPC 协议不按
+#     调用者过滤——这些字段一律走 REST，原样转发调用者的 Authorization，由
+#     下游判。走 gRPC 就绕开了数据权限：传一个别人的 id 就能看到别人的数据。
+#
+# 写操作只有待办的同意 / 驳回：纯转发，带调用方给的幂等键，不在本组件里编排
+# 多个下游。下游拒绝时字段上的错误带 extensions.code：UNAUTHENTICATED
+# （下游不认这个 token，重新登录）、FORBIDDEN、NOT_FOUND、CONFLICT（状态已
+# 变，刷新）、BAD_USER_INPUT；其余失败对客户端显示为通用错误，原因在日志里。
 
 scalar DateTime
 
@@ -33,19 +31,45 @@ type Query {
   customer(id: ID!): Customer
   customers(ids: [ID!]!): [Customer]!
 
-  # ── mdm-product（data_scopes: none，gRPC BatchGet，DataLoader 防 N+1） ──
+  # ── mdm-product（data_scopes: none，gRPC） ──
   product(id: ID!): Product
   products(ids: [ID!]!): [Product]!
+  # 按 sku / name 关键字找产品（mdm-product List 的 q）：前缀匹配排在包含匹配前面，
+  # 与 mdm-product 的列表一样只查默认时间窗口内建档的产品。
+  searchProducts(keyword: String!, cursor: String, pageSize: Int): ProductPage!
 
-  # ── erp-sales（有 org/owner 数据权限，走 REST 转发） ──
+  # ── erp-sales（org/owner 数据范围，REST 转发） ──
   order(id: ID!): Order
-  myOrders(cursor: String, pageSize: Int, statusFilter: OrderStatus): OrderPage!
+  myOrders(cursor: String, pageSize: Int, statusFilter: OrderStatus, customerId: ID): OrderPage!
 
-  # ── erp-inventory（有 warehouse 数据权限，走 REST 转发；无批量端点，见上） ──
+  # ── erp-inventory（warehouse 数据范围，REST 转发） ──
+  # 给定产品与仓库查一条余额，没有批量端点，所以不经 DataLoader。
   inventoryBalance(productId: ID!, warehouseId: ID!): InventoryBalance
+  # 一个产品在调用者有授权的各仓库里的余额，游标分页。
+  inventoryBalances(productId: ID!, cursor: String, pageSize: Int): InventoryBalancePage!
+  # 调用者有授权的全部仓库（几十行量级，不分页）。
+  warehouses: [Warehouse!]!
 
-  # ── infra-workflow（有 org/owner 数据权限，走 REST 转发；移动端主场景） ──
+  # ── infra-workflow（org/owner 数据范围，REST 转发；移动端主场景） ──
   myTasks(cursor: String, pageSize: Int, type: TaskType, status: TaskStatus): TaskPage!
+  # 待办详情，含审批历史（actions）。
+  task(id: ID!): Task
+
+  # ── infra-notification（owner 数据范围，REST 转发） ──
+  myNotifications(cursor: String, pageSize: Int): NotificationPage!
+
+  # ── crm-opportunity（org/owner 数据范围，REST 转发） ──
+  # 我负责的商机（view=mine）。
+  myOpportunities(cursor: String, pageSize: Int, status: OpportunityStatus): OpportunityPage!
+  opportunity(id: ID!): Opportunity
+}
+
+type Mutation {
+  # ── infra-workflow：同意 / 驳回一条待办，返回处理后的详情（含 actions） ──
+  # idempotencyKey 由客户端生成、每次用户操作一个，重试时原样再发。
+  approveTask(id: ID!, comment: String, idempotencyKey: String!): Task!
+  # 驳回必须带附言：发起人要知道该改什么。
+  rejectTask(id: ID!, comment: String!, idempotencyKey: String!): Task!
 }
 
 # ============ mdm-customer ============
@@ -113,6 +137,11 @@ type Product {
   updatedAt: DateTime!
 }
 
+type ProductPage {
+  products: [Product!]!
+  nextCursor: String!
+}
+
 # ============ erp-sales ============
 
 enum OrderStatus {
@@ -134,7 +163,7 @@ type OrderItem {
   unitPrice: String! # decimal-as-string，快照
   discount: String! # decimal-as-string，0~1
   taxRate: String! # decimal-as-string
-  subtotal: String! # 服务端算好，前端不自己算钱（设计计划 §3.2/§8.4）
+  subtotal: String! # 服务端算好，前端不自己算钱
 }
 
 type Order {
@@ -170,6 +199,18 @@ type InventoryBalance {
   version: Int!
 }
 
+type InventoryBalancePage {
+  balances: [InventoryBalance!]!
+  nextCursor: String!
+}
+
+type Warehouse {
+  id: ID!
+  code: String!
+  name: String!
+  status: String!
+}
+
 # ============ infra-workflow ============
 
 enum TaskType {
@@ -200,9 +241,110 @@ type Task {
   dueAt: DateTime
   createdAt: DateTime!
   updatedAt: DateTime!
+  # 审批历史：task / approveTask / rejectTask 返回它；myTasks 的列表接口不带历史，为 null。
+  actions: [TaskAction!]
+}
+
+enum TaskActionType {
+  APPROVED
+  REJECTED
+  CLOSED
+  CANCELLED
+}
+
+type TaskAction {
+  actorSub: String!
+  action: TaskActionType!
+  comment: String!
+  createdAt: DateTime!
 }
 
 type TaskPage {
   tasks: [Task!]!
+  nextCursor: String!
+}
+
+# ============ infra-notification ============
+
+enum NotificationChannel {
+  IM
+  EMAIL
+  SMS
+}
+
+enum NotificationStatus {
+  PENDING
+  ACCEPTED
+  SENT
+  FAILED_PERMANENT
+  SUPPRESSED
+  RETRYING
+}
+
+type Notification {
+  id: ID!
+  category: String!
+  channel: NotificationChannel!
+  title: String!
+  body: String!
+  status: NotificationStatus!
+  sourceComponent: String!
+  sourceAggregate: String!
+  sourceId: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type NotificationPage {
+  notifications: [Notification!]!
+  nextCursor: String!
+}
+
+# ============ crm-opportunity ============
+
+enum OpportunityStatus {
+  OPEN
+  WON
+  LOST
+  CANCELLED
+}
+
+type OpportunityItem {
+  productId: ID!
+  productSku: String!
+  productName: String!
+  uomId: String!
+  qty: String! # decimal-as-string
+  quotedUnitPrice: String! # 报价快照，不是权威价目
+  subtotal: String! # 服务端算好
+}
+
+type Opportunity {
+  id: ID!
+  name: String!
+  customerId: ID!
+  customerName: String!
+  ownerId: String!
+  deptId: String!
+  deptPath: String!
+  stageId: String!
+  stageName: String!
+  items: [OpportunityItem!]!
+  expectedAmount: String! # decimal-as-string
+  probability: Int! # 0-100
+  weightedAmount: String! # expectedAmount × probability，服务端算好
+  expectedCloseDate: DateTime
+  status: OpportunityStatus!
+  currency: String!
+  lostReason: String!
+  wonAt: DateTime
+  orderId: String! # 赢单转出的订单 id，未转为空串
+  version: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type OpportunityPage {
+  opportunities: [Opportunity!]!
   nextCursor: String!
 }

@@ -18,6 +18,12 @@ const noopResolvers = {
     inventoryBalance: () => null,
     myTasks: () => ({ tasks: [], nextCursor: "" }),
   },
+  // 与 resolvers/index.ts 一样带着 Mutation：裁掉整个 Mutation 类型之后，
+  // 多出来的 Mutation resolver 不能让 buildSchema 报错。
+  Mutation: {
+    approveTask: () => null,
+    rejectTask: () => null,
+  },
 };
 
 describe("buildSchema", () => {
@@ -61,5 +67,74 @@ describe("buildSchema", () => {
     const schema = buildSchema({ available: new Set(), resolvers: noopResolvers });
     const queryType = schema.getQueryType();
     expect(Object.keys(queryType!.getFields())).toEqual([]);
+  });
+});
+
+describe("buildSchema：新增字段按依赖裁剪", () => {
+  const ALL = new Set([
+    "mdm/customer",
+    "mdm/product",
+    "erp/sales",
+    "erp/inventory",
+    "infra/workflow",
+    "infra/notification",
+    "crm/opportunity",
+  ] as const);
+
+  function fieldsOf(available: ReadonlySet<string>) {
+    const schema = buildSchema({ available: available as never, resolvers: noopResolvers });
+    return {
+      query: Object.keys(schema.getQueryType()!.getFields()),
+      mutation: schema.getMutationType() ? Object.keys(schema.getMutationType()!.getFields()) : null,
+    };
+  }
+
+  function without(dep: string) {
+    return new Set([...ALL].filter((d) => d !== dep));
+  }
+
+  it("全部依赖都在时，新增的 Query 与 Mutation 字段全部注册", () => {
+    const { query, mutation } = fieldsOf(ALL);
+    for (const f of [
+      "task",
+      "myNotifications",
+      "inventoryBalances",
+      "warehouses",
+      "searchProducts",
+      "myOpportunities",
+      "opportunity",
+    ]) {
+      expect(query).toContain(f);
+    }
+    expect(mutation).toEqual(expect.arrayContaining(["approveTask", "rejectTask"]));
+  });
+
+  it("缺 infra/notification 时没有 myNotifications，其余照常", () => {
+    const { query } = fieldsOf(without("infra/notification"));
+    expect(query).not.toContain("myNotifications");
+    expect(query).toContain("myTasks");
+    expect(query).toContain("myOpportunities");
+  });
+
+  it("缺 crm/opportunity 时没有 myOpportunities / opportunity", () => {
+    const { query } = fieldsOf(without("crm/opportunity"));
+    expect(query).not.toContain("myOpportunities");
+    expect(query).not.toContain("opportunity");
+  });
+
+  it("缺 erp/inventory 时没有 inventoryBalances / warehouses", () => {
+    const { query } = fieldsOf(without("erp/inventory"));
+    expect(query).not.toContain("inventoryBalances");
+    expect(query).not.toContain("warehouses");
+  });
+
+  it("缺 mdm/product 时没有 searchProducts", () => {
+    expect(fieldsOf(without("mdm/product")).query).not.toContain("searchProducts");
+  });
+
+  it("缺 infra/workflow 时没有 task，也没有 Mutation 类型（一个写操作都不剩）", () => {
+    const { query, mutation } = fieldsOf(without("infra/workflow"));
+    expect(query).not.toContain("task");
+    expect(mutation).toBeNull();
   });
 });

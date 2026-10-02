@@ -1,5 +1,5 @@
 /**
- * 每个 Query 字段归哪个可选依赖：`schema.ts` 按这张表在构建 schema 时裁掉
+ * 每个 Query / Mutation 字段归哪个可选依赖：`schema.ts` 按这张表在构建 schema 时裁掉
  * 这次装配没有的组件对应的字段。
  *
  * ⚠️ 新增字段必须在这里登记，否则它永远不会被裁掉：没装对应组件时前端
@@ -14,6 +14,8 @@ export const DEP_MDM_PRODUCT = "mdm/product";
 export const DEP_ERP_SALES = "erp/sales";
 export const DEP_ERP_INVENTORY = "erp/inventory";
 export const DEP_INFRA_WORKFLOW = "infra/workflow";
+export const DEP_INFRA_NOTIFICATION = "infra/notification";
+export const DEP_CRM_OPPORTUNITY = "crm/opportunity";
 
 export const ALL_DEPENDENCIES = [
   DEP_MDM_CUSTOMER,
@@ -21,6 +23,8 @@ export const ALL_DEPENDENCIES = [
   DEP_ERP_SALES,
   DEP_ERP_INVENTORY,
   DEP_INFRA_WORKFLOW,
+  DEP_INFRA_NOTIFICATION,
+  DEP_CRM_OPPORTUNITY,
 ] as const;
 
 export type DependencyId = (typeof ALL_DEPENDENCIES)[number];
@@ -30,10 +34,19 @@ export const FIELD_TO_DEPENDENCY: Record<string, DependencyId> = {
   customers: DEP_MDM_CUSTOMER,
   product: DEP_MDM_PRODUCT,
   products: DEP_MDM_PRODUCT,
+  searchProducts: DEP_MDM_PRODUCT,
   order: DEP_ERP_SALES,
   myOrders: DEP_ERP_SALES,
   inventoryBalance: DEP_ERP_INVENTORY,
+  inventoryBalances: DEP_ERP_INVENTORY,
+  warehouses: DEP_ERP_INVENTORY,
   myTasks: DEP_INFRA_WORKFLOW,
+  task: DEP_INFRA_WORKFLOW,
+  approveTask: DEP_INFRA_WORKFLOW,
+  rejectTask: DEP_INFRA_WORKFLOW,
+  myNotifications: DEP_INFRA_NOTIFICATION,
+  myOpportunities: DEP_CRM_OPPORTUNITY,
+  opportunity: DEP_CRM_OPPORTUNITY,
 };
 
 /** 看这次装配里每个可选依赖的地址有没有注入（缺席的依赖不注入任何变量），返回装了哪些。 */

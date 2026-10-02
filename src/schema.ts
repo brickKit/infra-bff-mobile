@@ -24,20 +24,30 @@ export function loadFullSchemaDocument(): DocumentNode {
   return parse(sdl);
 }
 
-function filterQueryFields(doc: DocumentNode, available: ReadonlySet<DependencyId>): DocumentNode {
-  const definitions = doc.definitions.map((def) => {
-    if (def.kind !== Kind.OBJECT_TYPE_DEFINITION || def.name.value !== "Query") {
-      return def;
+const ROOT_TYPES = new Set(["Query", "Mutation"]);
+
+function keepField(name: string, available: ReadonlySet<DependencyId>): boolean {
+  const dep = FIELD_TO_DEPENDENCY[name];
+  // 表里没登记的字段（schema.graphql 与 dependencies.ts 手工保持同步，理论上
+  // 不该出现）始终注册：宁可多暴露一个该裁的字段，也不要莫名其妙裁掉一个
+  // 没登记的字段。
+  return dep === undefined || available.has(dep);
+}
+
+function filterRootFields(doc: DocumentNode, available: ReadonlySet<DependencyId>): DocumentNode {
+  const definitions = doc.definitions.flatMap((def) => {
+    if (def.kind !== Kind.OBJECT_TYPE_DEFINITION || !ROOT_TYPES.has(def.name.value)) {
+      return [def];
     }
-    const queryDef = def as ObjectTypeDefinitionNode;
-    const fields = (queryDef.fields ?? []).filter((field) => {
-      const dep = FIELD_TO_DEPENDENCY[field.name.value];
-      // 表里没登记的字段（schema.graphql 与 dependencies.ts 手工保持同步，
-      // 理论上不该出现）始终注册：宁可多暴露一个该裁的字段，也不要莫名其妙
-      // 裁掉一个没登记的字段。
-      return dep === undefined || available.has(dep);
-    });
-    return { ...queryDef, fields };
+    const rootDef = def as ObjectTypeDefinitionNode;
+    const fields = (rootDef.fields ?? []).filter((field) => keepField(field.name.value, available));
+    // 一个字段都不剩的 Mutation 整个去掉：没有字段的对象类型不是合法的 schema，
+    // 而"这次装配没有任何写操作"本来就该表现为 introspection 里没有 Mutation。
+    // Query 留着空壳：根查询类型必须存在。
+    if (fields.length === 0 && rootDef.name.value === "Mutation") {
+      return [];
+    }
+    return [{ ...rootDef, fields }];
   });
   return { ...doc, definitions };
 }
@@ -49,7 +59,7 @@ export interface BuildSchemaOptions {
 
 export function buildSchema({ available, resolvers }: BuildSchemaOptions) {
   const fullDoc = loadFullSchemaDocument();
-  const filteredDoc = filterQueryFields(fullDoc, available);
+  const filteredDoc = filterRootFields(fullDoc, available);
   return makeExecutableSchema({
     typeDefs: filteredDoc,
     resolvers,
