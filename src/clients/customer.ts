@@ -6,9 +6,10 @@
  */
 
 import type { ServiceClientConstructor } from "@grpc/grpc-js";
-import { userClient, type Config } from "besdk";
+import { userClient } from "besdk";
 import { callUnary, loadVendorProto, stripEnumPrefix, timestampToISOString, type ProtoTimestamp } from "./grpcProto.js";
 import { DEP_MDM_CUSTOMER } from "../dependencies.js";
+import type { Caller } from "./restForward.js";
 
 const proto = loadVendorProto("mdm/customer/v1/customer.proto");
 const CustomerServiceCtor = (
@@ -79,12 +80,11 @@ function toDTO(raw: RawCustomer): CustomerDTO {
  * 原始顺序重新拼出 DataLoader 要的形状。
  */
 export async function batchGetCustomers(
-  config: Config,
-  auth: string,
+  caller: Caller,
   ids: readonly string[],
 ): Promise<Array<CustomerDTO | undefined>> {
   if (ids.length === 0) return [];
-  const { target, credentials, options } = userClient(config, auth, DEP_MDM_CUSTOMER, "grpc");
+  const { target, credentials, options } = userClient(caller.config, caller.auth, DEP_MDM_CUSTOMER, "grpc");
   const client = new CustomerServiceCtor(target, credentials, options);
   try {
     const res = await callUnary<{ ids: readonly string[] }, BatchGetResponse>(

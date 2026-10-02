@@ -4,9 +4,10 @@
  */
 
 import type { ServiceClientConstructor } from "@grpc/grpc-js";
-import { userClient, type Config } from "besdk";
+import { userClient } from "besdk";
 import { callUnary, loadVendorProto, stripEnumPrefix, timestampToISOString, type ProtoTimestamp } from "./grpcProto.js";
 import { DEP_MDM_PRODUCT } from "../dependencies.js";
+import type { Caller } from "./restForward.js";
 
 const proto = loadVendorProto("mdm/product/v1/product.proto");
 const ProductServiceCtor = (
@@ -64,19 +65,18 @@ function toDTO(raw: RawProduct): ProductDTO {
   };
 }
 
-function newClient(config: Config, auth: string) {
-  const { target, credentials, options } = userClient(config, auth, DEP_MDM_PRODUCT, "grpc");
+function newClient(caller: Caller) {
+  const { target, credentials, options } = userClient(caller.config, caller.auth, DEP_MDM_PRODUCT, "grpc");
   return new ProductServiceCtor(target, credentials, options);
 }
 
 /** DataLoader 的 batchGet 函数，形状要求同 customer.ts 的 batchGetCustomers。 */
 export async function batchGetProducts(
-  config: Config,
-  auth: string,
+  caller: Caller,
   ids: readonly string[],
 ): Promise<Array<ProductDTO | undefined>> {
   if (ids.length === 0) return [];
-  const client = newClient(config, auth);
+  const client = newClient(caller);
   try {
     const res = await callUnary<{ ids: readonly string[] }, BatchGetResponse>(
       client as unknown as { [method: string]: unknown },
@@ -106,11 +106,10 @@ export interface ProductSearch {
  * mdm-product 的默认时间窗口，本组件不放宽它。
  */
 export async function searchProducts(
-  config: Config,
-  auth: string,
+  caller: Caller,
   search: ProductSearch,
 ): Promise<{ products: ProductDTO[]; nextCursor: string }> {
-  const client = newClient(config, auth);
+  const client = newClient(caller);
   try {
     const res = await callUnary<Record<string, unknown>, ListResponse>(
       client as unknown as { [method: string]: unknown },

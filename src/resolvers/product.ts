@@ -29,6 +29,6 @@ export const productResolvers = {
   searchProducts: requirePermission(
     "infra.bff-mobile.product.view",
     async (_source: unknown, args: SearchArgs, context: AppContext) =>
-      searchProducts(context.config, context.auth, { q: args.keyword, cursor: args.cursor, pageSize: args.pageSize }),
+      searchProducts(context, { q: args.keyword, cursor: args.cursor, pageSize: args.pageSize }),
   ),
 };

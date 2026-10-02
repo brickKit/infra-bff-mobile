@@ -15,11 +15,14 @@
 
 import { describe, expect, it } from "vitest";
 import { Config } from "besdk";
+import type { Caller } from "../src/clients/restForward.js";
 
 // 地址只从 Config 读：真机用例把本进程环境拍成一份 Config，同 runStandalone 的做法。
 const config = new Config(
   Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)),
 );
+// 拒绝时客户端会记 warn；这里只验成功路径，日志写到 console 即可。
+const caller: Caller = { config, auth: "", logger: console as unknown as Caller["logger"] };
 
 const CUSTOMER_ID = process.env.TEST_CUSTOMER_ID ?? "";
 const PRODUCT_ID = process.env.TEST_PRODUCT_ID ?? "";
@@ -32,7 +35,7 @@ describe.skipIf(!HAS_FIXTURES)("batchGetCustomers/batchGetProducts（真机）",
     const { batchGetCustomers } = await import("../src/clients/customer.js");
     // mdm-customer 的 id 是 bigint，"查不到"的 id 也必须是数字形状：非数字
     // 字符串在 SQL 层直接报 invalid input syntax，不是干净的"查不到"。
-    const result = await batchGetCustomers(config, "", [CUSTOMER_ID, "999999999"]);
+    const result = await batchGetCustomers(caller, [CUSTOMER_ID, "999999999"]);
 
     expect(result).toHaveLength(2);
     expect(result[0]?.id).toBe(CUSTOMER_ID);
@@ -42,7 +45,7 @@ describe.skipIf(!HAS_FIXTURES)("batchGetCustomers/batchGetProducts（真机）",
 
   it("真实调 mdm-product，拿到真实产品；枚举前缀已剥掉", async () => {
     const { batchGetProducts } = await import("../src/clients/product.js");
-    const result = await batchGetProducts(config, "", [PRODUCT_ID]);
+    const result = await batchGetProducts(caller, [PRODUCT_ID]);
 
     expect(result).toHaveLength(1);
     expect(result[0]?.id).toBe(PRODUCT_ID);
@@ -54,8 +57,8 @@ describe.skipIf(!HAS_FIXTURES)("batchGetCustomers/batchGetProducts（真机）",
 describe("batchGetCustomers/batchGetProducts（不需要真机）", () => {
   it("空 ids 短路，不发请求", async () => {
     const { batchGetCustomers } = await import("../src/clients/customer.js");
-    expect(await batchGetCustomers(config, "", [])).toEqual([]);
+    expect(await batchGetCustomers(caller, [])).toEqual([]);
     const { batchGetProducts } = await import("../src/clients/product.js");
-    expect(await batchGetProducts(config, "", [])).toEqual([]);
+    expect(await batchGetProducts(caller, [])).toEqual([]);
   });
 });

@@ -27,14 +27,12 @@ function rawAuthHeader(request: Request): string {
 export function contextFactory(rt: Pick<Runtime, "config" | "logger">): (init: { request: Request }) => AppContext {
   const { config, logger } = rt;
   return ({ request }) => {
-    const auth = rawAuthHeader(request);
+    const caller: Caller = { config, auth: rawAuthHeader(request), logger };
     return {
+      ...caller,
       request,
-      auth,
-      config,
-      logger,
-      customerLoader: createBatchGetLoader((ids) => batchGetCustomers(config, auth, ids)),
-      productLoader: createBatchGetLoader((ids) => batchGetProducts(config, auth, ids)),
+      customerLoader: createBatchGetLoader((ids) => batchGetCustomers(caller, ids)),
+      productLoader: createBatchGetLoader((ids) => batchGetProducts(caller, ids)),
     };
   };
 }
