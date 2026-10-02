@@ -171,15 +171,24 @@ export async function logsAfter(
 }
 
 /** 起一个 mdm-product 的 gRPC 桩，只实现 `impl` 里给的方法；proto 用随仓库携带的那份。 */
-export async function startProductGrpcStub(impl: Record<string, UnaryImpl>): Promise<GrpcStub> {
-  const def = loadSync(join(PKG_ROOT, "contracts/vendor/mdm/product/v1/product.proto"), {
+export function startProductGrpcStub(impl: Record<string, UnaryImpl>): Promise<GrpcStub> {
+  return startMdmGrpcStub("product", "ProductService", impl);
+}
+
+/** 起一个 mdm-customer 的 gRPC 桩，用法同 startProductGrpcStub。 */
+export function startCustomerGrpcStub(impl: Record<string, UnaryImpl>): Promise<GrpcStub> {
+  return startMdmGrpcStub("customer", "CustomerService", impl);
+}
+
+async function startMdmGrpcStub(name: string, serviceName: string, impl: Record<string, UnaryImpl>): Promise<GrpcStub> {
+  const def = loadSync(join(PKG_ROOT, `contracts/vendor/mdm/${name}/v1/${name}.proto`), {
     longs: Number,
     enums: String,
     defaults: true,
     oneofs: true,
   });
   const pkg = grpc.loadPackageDefinition(def) as unknown as {
-    mdm: { product: { v1: { ProductService: { service: grpc.ServiceDefinition } } } };
+    mdm: Record<string, { v1: Record<string, { service: grpc.ServiceDefinition }> }>;
   };
   const calls: GrpcCall[] = [];
   const handlers: grpc.UntypedServiceImplementation = {};
@@ -203,7 +212,7 @@ export async function startProductGrpcStub(impl: Record<string, UnaryImpl>): Pro
     };
   }
   const server = new grpc.Server();
-  server.addService(pkg.mdm.product.v1.ProductService.service, handlers);
+  server.addService(pkg.mdm[name]!.v1[serviceName]!.service, handlers);
   const port = await new Promise<number>((resolve, reject) =>
     server.bindAsync("127.0.0.1:0", grpc.ServerCredentials.createInsecure(), (err, p) =>
       err ? reject(err) : resolve(p),

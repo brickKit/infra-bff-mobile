@@ -8,7 +8,7 @@ The GraphQL backend-for-frontend of the mobile app: one query fills one mobile p
 
 - The mobile GraphQL schema, written by hand and cut to the mobile pages (`contracts/schema.graphql`), and its single endpoint `POST /graphql`.
 - Cutting that schema to the assembly: a field whose component is not installed is not in the schema at all.
-- Batched reads (one gRPC `BatchGet` per request for the customers or products of a page) and the query limits: depth 5, cost 100, persisted queries only.
+- Batched reads (one gRPC `BatchGet` per request for the customers or products of a page) and the query limits: depth 5, cost 100, at most 100 IDs per `customers` / `products` call (more is a `BAD_USER_INPUT` field error, and no downstream call is made), persisted queries only.
 - One permission key per field group (`infra.bff-mobile.*`), checked before any downstream call.
 
 **Does not own**

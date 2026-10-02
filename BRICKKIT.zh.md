@@ -8,7 +8,7 @@
 
 - 移动端 GraphQL schema：手写、按移动端页面裁剪（`contracts/schema.graphql`），唯一端点 `POST /graphql`。
 - 按装配裁剪 schema：对应组件没装的字段根本不在 schema 里。
-- 批量读（一个页面的客户或产品，一次请求一个 gRPC `BatchGet`）与查询限制：深度 5、复杂度 100、只认持久化查询。
+- 批量读（一个页面的客户或产品，一次请求一个 gRPC `BatchGet`）与查询限制：深度 5、复杂度 100、`customers` / `products` 一次最多 100 个 id（超过时字段报 `BAD_USER_INPUT`，不调下游）、只认持久化查询。
 - 每组字段一个权限键（`infra.bff-mobile.*`），在调任何下游之前检查。
 
 **不负责**

@@ -4,6 +4,7 @@
 
 import { requirePermission } from "besdk";
 import type { AppContext } from "../context.js";
+import { assertBatchIdsWithinLimit } from "../limits.js";
 
 export const customerResolvers = {
   customer: requirePermission(
@@ -15,7 +16,9 @@ export const customerResolvers = {
   ),
   customers: requirePermission(
     "infra.bff-mobile.customer.view",
-    async (_source: unknown, args: { ids: string[] }, context: AppContext) =>
-      context.customerLoader.loadMany(args.ids),
+    async (_source: unknown, args: { ids: string[] }, context: AppContext) => {
+      assertBatchIdsWithinLimit("customers", args.ids);
+      return context.customerLoader.loadMany(args.ids);
+    },
   ),
 };

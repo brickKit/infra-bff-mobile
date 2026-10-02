@@ -30,10 +30,12 @@ scalar DateTime
 type Query {
   # ── mdm-customer（data_scopes: none，gRPC BatchGet，DataLoader 防 N+1） ──
   customer(id: ID!): Customer
+  "按 id 批量取客户，结果与 ids 一一对应（查不到的位置是 null）。一次最多 100 个 id，超过时字段报 BAD_USER_INPUT，不调下游。"
   customers(ids: [ID!]!): [Customer]!
 
   # ── mdm-product（data_scopes: none，gRPC） ──
   product(id: ID!): Product
+  "按 id 批量取产品，结果与 ids 一一对应（查不到的位置是 null）。一次最多 100 个 id，超过时字段报 BAD_USER_INPUT，不调下游。"
   products(ids: [ID!]!): [Product]!
   # 按 sku / name 关键字找产品（mdm-product List 的 q）：前缀匹配排在包含匹配前面，
   # 与 mdm-product 的列表一样只查默认时间窗口内建档的产品。

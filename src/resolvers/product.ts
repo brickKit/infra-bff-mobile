@@ -6,6 +6,7 @@
 import { requirePermission } from "besdk";
 import { searchProducts } from "../clients/product.js";
 import type { AppContext } from "../context.js";
+import { assertBatchIdsWithinLimit } from "../limits.js";
 
 interface SearchArgs {
   keyword: string;
@@ -23,8 +24,10 @@ export const productResolvers = {
   ),
   products: requirePermission(
     "infra.bff-mobile.product.view",
-    async (_source: unknown, args: { ids: string[] }, context: AppContext) =>
-      context.productLoader.loadMany(args.ids),
+    async (_source: unknown, args: { ids: string[] }, context: AppContext) => {
+      assertBatchIdsWithinLimit("products", args.ids);
+      return context.productLoader.loadMany(args.ids);
+    },
   ),
   searchProducts: requirePermission(
     "infra.bff-mobile.product.view",
