@@ -15,7 +15,6 @@ export interface AppContext extends Caller {
   // 约束：SDK 不可能预先知道每个组件的 context 长什么样。
   [key: string]: unknown;
   request: Request;
-  logger: Runtime["logger"];
   customerLoader: DataLoader<string, CustomerDTO | undefined>;
   productLoader: DataLoader<string, ProductDTO | undefined>;
 }

@@ -10,14 +10,30 @@
  * `http://`。
  */
 
-import type { Config } from "besdk";
+import { GraphQLError } from "graphql";
+import type { Config, Runtime } from "besdk";
 import type { DependencyId } from "../dependencies.js";
 
-/** 一次转发需要的调用者信息：地址从 config 读，身份原样透传。 */
+/** 一次转发需要的调用者信息：地址从 config 读，身份原样透传，拒绝原因记进 logger。 */
 export interface Caller {
   config: Config;
   auth: string;
+  logger: Runtime["logger"];
 }
+
+/**
+ * 调用者能据此行动的下游状态码 → GraphQL 错误码。这些以 GraphQLError 抛出，
+ * Yoga 原样交给客户端（401 重新登录、409 刷新再试…）；不在表里的（5xx、连接
+ * 失败）是本组件或下游的意外故障，抛普通 Error，Yoga 只给客户端一句通用错误，
+ * 内部细节不外泄。
+ */
+const VISIBLE_STATUS: Record<number, string> = {
+  400: "BAD_USER_INPUT",
+  401: "UNAUTHENTICATED",
+  403: "FORBIDDEN",
+  404: "NOT_FOUND",
+  409: "CONFLICT",
+};
 
 export class RestForwardError extends Error {
   constructor(
@@ -57,7 +73,20 @@ export async function forwardGet(caller: Caller, dep: DependencyId, path: string
     return null;
   }
   if (!resp.ok) {
-    throw new RestForwardError(resp.status, `${dep} ${path} 返回 ${resp.status}`);
+    rejected(caller, dep, path, resp.status);
   }
   return resp.json();
+}
+
+/** 下游拒绝：先记日志（哪个依赖、哪个路径、什么状态码），再按 VISIBLE_STATUS 决定客户端看到什么。 */
+function rejected(caller: Caller, dep: DependencyId, path: string, status: number): never {
+  const message = `${dep} ${path} 返回 ${status}`;
+  caller.logger.warn({ dep, path, status }, message);
+  const code = VISIBLE_STATUS[status];
+  if (code) {
+    throw new GraphQLError(`${dep} 拒绝了这次请求（${status}）`, {
+      extensions: { code, downstreamStatus: status },
+    });
+  }
+  throw new RestForwardError(status, message);
 }
