@@ -37,12 +37,12 @@
 
 ```bash
 npm ci
-make test            # 类型检查 + vitest；下游是本机桩，不需要容器；"Tests  N passed | 3 skipped"
+make test            # 类型检查 + vitest；下游是本机桩，不需要容器；"Tests  N passed | 12 skipped"
 make check-version dag-check contract-check import-scan module-check   # 每个打印一行 ✓
 make docs-check      # "0 with errors, 0 warnings"
 ```
 
-跳过的三条用例要真实下游：`make test-e2e` 跑它们，`TEST_MDM_CUSTOMER_ENDPOINT`、`TEST_INFRA_WORKFLOW_ENDPOINT`、`TEST_ERP_SALES_ENDPOINT`、`TEST_CUSTOMER_ID` 缺哪个就点名失败（gRPC 客户端用例另读 `MDM_CUSTOMER_GRPC_ENDPOINT`、`MDM_PRODUCT_GRPC_ENDPOINT`、`TEST_PRODUCT_ID`）。`contract-check` 会打印它对比的 tag（`graphql breaking --against '<上一个发布 tag>'`）。真机上在项目根：`make verify ID=infra/bff-mobile FOCUS=1` 构建镜像、带着已装的依赖起来，最后收尾。
+跳过的用例要真实下游。`make test-e2e` 用真实用户 token 对在跑的组件跑 `test/e2e.test.ts`，该文件开头列的必填 `TEST_*` 变量（token、JWKS 与授权包地址、product / inventory / workflow 的地址）缺哪个就点名失败；可选的（notification、opportunity、customer、sales）给了就验，没给就验它们的字段不在 schema 里。`test/clients.test.ts` 的两条 gRPC 客户端用例读 `MDM_CUSTOMER_GRPC_ENDPOINT`、`MDM_PRODUCT_GRPC_ENDPOINT`、`TEST_CUSTOMER_ID`、`TEST_PRODUCT_ID`。`contract-check` 会打印它对比的 tag（`graphql breaking --against '<上一个发布 tag>'`）。真机上在项目根：`make verify ID=infra/bff-mobile FOCUS=1` 构建镜像、带着已装的依赖起来，最后收尾。
 
 ## 设计取舍
 

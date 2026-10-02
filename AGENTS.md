@@ -37,12 +37,12 @@ The AI guide to developing this component. How to use it, its boundaries and con
 
 ```bash
 npm ci
-make test            # typecheck + vitest; downstreams are local stubs, no container needed; "Tests  N passed | 3 skipped"
+make test            # typecheck + vitest; downstreams are local stubs, no container needed; "Tests  N passed | 12 skipped"
 make check-version dag-check contract-check import-scan module-check   # each prints a ✓ line
 make docs-check      # "0 with errors, 0 warnings"
 ```
 
-The three skipped tests need real downstreams: `make test-e2e` runs them and fails, naming the variable, when `TEST_MDM_CUSTOMER_ENDPOINT`, `TEST_INFRA_WORKFLOW_ENDPOINT`, `TEST_ERP_SALES_ENDPOINT` or `TEST_CUSTOMER_ID` is not set (the gRPC client tests also read `MDM_CUSTOMER_GRPC_ENDPOINT`, `MDM_PRODUCT_GRPC_ENDPOINT`, `TEST_PRODUCT_ID`). `contract-check` prints the tag it compares against (`graphql breaking --against '<last release tag>'`). On a real machine, from the project root: `make verify ID=infra/bff-mobile FOCUS=1` builds the image, starts it with the installed dependencies and tears down.
+The skipped tests need real downstreams. `make test-e2e` runs `test/e2e.test.ts` against running components with a real user token, and fails, naming the variable, when one of the required `TEST_*` variables listed at the top of that file is not set (a token, the JWKS and bundle URLs, and the product, inventory and workflow addresses); the optional ones (notification, opportunity, customer, sales) are checked when given and checked absent from the schema when not. The two gRPC client tests in `test/clients.test.ts` read `MDM_CUSTOMER_GRPC_ENDPOINT`, `MDM_PRODUCT_GRPC_ENDPOINT`, `TEST_CUSTOMER_ID` and `TEST_PRODUCT_ID`. `contract-check` prints the tag it compares against (`graphql breaking --against '<last release tag>'`). On a real machine, from the project root: `make verify ID=infra/bff-mobile FOCUS=1` builds the image, starts it with the installed dependencies and tears down.
 
 ## Design decisions
 

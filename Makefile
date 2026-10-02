@@ -33,7 +33,7 @@ test:  ## 类型检查 + vitest（下游全是本机桩，不需要任何容器�
 test-e2e:  ## 对真实下游跑端到端用例。缺 TEST_* 变量时失败，而不是全部跳过显示通过（变量见 test/e2e.test.ts 开头）
 	@# vitest 对 skipIf 的用例照样退出 0：所以这里先查变量，缺哪个就点名失败。
 	@missing=""; \
-	 for v in TEST_MDM_CUSTOMER_ENDPOINT TEST_INFRA_WORKFLOW_ENDPOINT TEST_ERP_SALES_ENDPOINT TEST_CUSTOMER_ID; do \
+	 for v in TEST_TOKEN TEST_IAM_JWKS_URL TEST_AUTHZ_BUNDLE_URL TEST_MDM_PRODUCT_GRPC_ENDPOINT TEST_ERP_INVENTORY_ENDPOINT TEST_INFRA_WORKFLOW_ENDPOINT; do \
 	   eval "val=\$${$$v:-}"; [ -n "$$val" ] || missing="$$missing $$v"; \
 	 done; \
 	 [ -z "$$missing" ] || { echo "✗ 没设$$missing：端到端用例会全部 SKIP 而显示通过"; exit 1; }

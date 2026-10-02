@@ -243,9 +243,26 @@ export interface StartBffOptions {
   roles: Record<string, string[]>;
   /** 给了就作为配置键 PERSISTED_OPERATIONS_JSON 的值原样注入（可以是非法 JSON，测启动失败） */
   manifestConfig?: string;
+  /** 给了就用真实的 JWKS / 授权包地址代替本机的假服务器（端到端用；这时 `jwks.sign` 签的 token 不会被认） */
+  auth?: { jwksUrl: string; bundleUrl: string };
 }
 
+/**
+ * 起被测进程。`freePort` 先占后放，到子进程 listen 之间端口可能被别人拿走——
+ * 本机任何一条出站连接的临时端口都从同一个范围里分（端到端时被测进程自己
+ * 就在连真实下游）。子进程因 EADDRINUSE 退出时换一个端口重来，最多三次。
+ */
 export async function startBff(opts: StartBffOptions): Promise<BffProcess> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await startBffOnce(opts);
+    } catch (err) {
+      if (attempt >= 3 || !String((err as Error).message).includes("EADDRINUSE")) throw err;
+    }
+  }
+}
+
+async function startBffOnce(opts: StartBffOptions): Promise<BffProcess> {
   const jwks = await startFakeJWKS();
   const bundle = await startFakeBundle(opts.roles);
   const port = await freePort();
@@ -269,8 +286,8 @@ export async function startBff(opts: StartBffOptions): Promise<BffProcess> {
       HOME: process.env.HOME ?? "",
       COMPONENT_ID: "infra/bff-mobile",
       COMPONENT_VERSION: "test",
-      IAM_JWKS_URL: jwks.url,
-      AUTHZ_BUNDLE_URL: bundle.url,
+      IAM_JWKS_URL: opts.auth?.jwksUrl ?? jwks.url,
+      AUTHZ_BUNDLE_URL: opts.auth?.bundleUrl ?? bundle.url,
       ...opts.endpoints,
       ...(opts.manifestConfig === undefined ? {} : { PERSISTED_OPERATIONS_JSON: opts.manifestConfig }),
     },
