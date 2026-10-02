@@ -6,7 +6,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { sha256, startBff, startHttpStub, type HttpStub } from "./harness.js";
+import { errorLogLines, sha256, startBff, startHttpStub, type BffProcess, type HttpStub } from "./harness.js";
 
 const TASK = `query Task($id: ID!) { task(id: $id) { id status } }`;
 const TASK_OTHER = `query TaskOther($id: ID!) { task(id: $id) { id title } }`;
@@ -95,5 +95,87 @@ describe("PERSISTED_OPERATIONS_JSON", () => {
         manifestConfig: value,
       }),
     ).rejects.toThrow(/退出[\s\S]*PERSISTED_OPERATIONS_JSON/);
+  }, 30_000);
+});
+
+// 客户端自己挑的哈希：清单是 JSON.parse 出来的普通对象，按下标查会摸到
+// Object.prototype 上继承来的属性（`__proto__` 是一个对象、`constructor` 是一个
+// 函数）。这条边界在登录之前，任何人都能发；它只能得到"查不到"，不能是 500
+// 加一条带堆栈的 ERROR 日志，也不能是一句暴露实现细节的 400。
+const INHERITED_KEYS = ["__proto__", "constructor", "toString", "hasOwnProperty"];
+
+async function settledLogs(bff: BffProcess, since: number): Promise<string> {
+  // 日志经管道异步到达，可能比响应晚；断言"没有 ERROR 行"之前等它落地
+  await new Promise((r) => setTimeout(r, 300));
+  return bff.logs().slice(since);
+}
+
+describe("持久化查询的边界（不带 token）", () => {
+  let bff: BffProcess;
+
+  beforeAll(async () => {
+    bff = await startBff({
+      endpoints: { INFRA_WORKFLOW_ENDPOINT: workflow.url },
+      queries: [TASK],
+      roles: ROLES,
+    });
+  }, 30_000);
+
+  afterAll(async () => {
+    await bff?.close();
+  });
+
+  it.each(INHERITED_KEYS)("哈希 %s：PersistedQueryNotFound，HTTP 200，没有 ERROR 日志", async (hash) => {
+    const before = bff.logs().length;
+    const res = await bff.post({ extensions: { persistedQuery: { version: 1, sha256Hash: hash } } });
+    expect(res.body.errors?.[0]?.message, JSON.stringify(res.body)).toMatch(/PersistedQueryNotFound/);
+    expect(res.status).toBe(200);
+    expect(errorLogLines(await settledLogs(bff, before))).toEqual([]);
+  });
+
+  it("GET 带继承属性名做哈希：同样是 PersistedQueryNotFound", async () => {
+    const extensions = JSON.stringify({ persistedQuery: { version: 1, sha256Hash: "constructor" } });
+    const resp = await fetch(`${bff.graphqlUrl}?extensions=${encodeURIComponent(extensions)}`, {
+      headers: { accept: "application/json" },
+    });
+    const body = (await resp.json()) as { errors?: Array<{ message: string }> };
+    expect(body.errors?.[0]?.message, JSON.stringify(body)).toMatch(/PersistedQueryNotFound/);
+  });
+
+  it("带查询文本的请求：PersistedQueryOnly，不执行", async () => {
+    const res = await bff.post({ query: "{ __typename }" });
+    expect(res.body.data ?? null).toBeNull();
+    expect(res.body.errors?.[0]?.message, JSON.stringify(res.body)).toMatch(/PersistedQueryOnly/);
+  });
+
+  it("查询文本加一个清单里有的哈希：仍然 PersistedQueryOnly", async () => {
+    const res = await bff.post({
+      query: "{ __typename }",
+      extensions: { persistedQuery: { version: 1, sha256Hash: sha256(TASK) } },
+    });
+    expect(res.body.data ?? null).toBeNull();
+    expect(res.body.errors?.[0]?.message, JSON.stringify(res.body)).toMatch(/PersistedQueryOnly/);
+  });
+});
+
+describe("PERSISTED_OPERATIONS_JSON 换的是清单，不是关掉限制", () => {
+  it("配了这个键：带查询文本的请求照样 PersistedQueryOnly；继承属性名照样查不到", async () => {
+    const bff = await startBff({
+      endpoints: { INFRA_WORKFLOW_ENDPOINT: workflow.url },
+      queries: [],
+      roles: ROLES,
+      manifestConfig: JSON.stringify({ [sha256(TASK)]: TASK }),
+    });
+    try {
+      const text = await bff.post({ query: "{ __typename }" });
+      expect(text.body.data ?? null).toBeNull();
+      expect(text.body.errors?.[0]?.message, JSON.stringify(text.body)).toMatch(/PersistedQueryOnly/);
+      const before = bff.logs().length;
+      const proto = await bff.post({ extensions: { persistedQuery: { version: 1, sha256Hash: "__proto__" } } });
+      expect(proto.body.errors?.[0]?.message, JSON.stringify(proto.body)).toMatch(/PersistedQueryNotFound/);
+      expect(errorLogLines(await settledLogs(bff, before))).toEqual([]);
+    } finally {
+      await bff.close();
+    }
   }, 30_000);
 });

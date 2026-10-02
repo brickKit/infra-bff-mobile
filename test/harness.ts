@@ -230,6 +230,13 @@ export interface BffProcess {
   jwks: FakeJWKS;
   /** 发一个已登记的持久化查询；`token` 为空时不带 Authorization。 */
   run: (query: string, opts?: { token?: string; variables?: Record<string, unknown> }) => Promise<GraphQLResult>;
+  /**
+   * 原样 POST 一个请求体（JSON 序列化后发出）：`run` 总是按查询文本算哈希，
+   * 测不了"客户端自己挑的哈希"和"带查询文本的请求"，这两类边界用它发。
+   */
+  post: (body: unknown, opts?: { token?: string }) => Promise<GraphQLResult>;
+  /** `/graphql` 的完整地址（测 GET 之类 `post` 覆盖不到的请求形状） */
+  graphqlUrl: string;
   logs: () => string;
   close: () => Promise<void>;
 }
@@ -309,22 +316,25 @@ async function startBffOnce(opts: StartBffOptions): Promise<BffProcess> {
   }
 
   const graphqlUrl = `http://127.0.0.1:${port}/graphql`;
+  const post = async (body: unknown, postOpts: { token?: string } = {}): Promise<GraphQLResult> => {
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (postOpts.token) headers.authorization = `Bearer ${postOpts.token}`;
+    const resp = await fetch(graphqlUrl, { method: "POST", headers, body: JSON.stringify(body) });
+    return { status: resp.status, body: (await resp.json()) as GraphQLResult["body"] };
+  };
   return {
     jwks,
     logs,
-    run: async (query, runOpts = {}) => {
-      const headers: Record<string, string> = { "content-type": "application/json" };
-      if (runOpts.token) headers.authorization = `Bearer ${runOpts.token}`;
-      const resp = await fetch(graphqlUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
+    graphqlUrl,
+    post,
+    run: (query, runOpts = {}) =>
+      post(
+        {
           variables: runOpts.variables ?? {},
           extensions: { persistedQuery: { version: 1, sha256Hash: sha256(query) } },
-        }),
-      });
-      return { status: resp.status, body: (await resp.json()) as GraphQLResult["body"] };
-    },
+        },
+        { token: runOpts.token },
+      ),
     close: async () => {
       if (child.exitCode === null && child.signalCode === null) {
         await new Promise<void>((resolve) => {
