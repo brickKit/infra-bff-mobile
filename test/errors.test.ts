@@ -42,6 +42,17 @@ describe("下游拒绝的透传", () => {
     expect(bff.logs()).toContain("infra/workflow /infra/workflow/tasks?status=PENDING 返回 401");
   });
 
+  it("调用者能处理的拒绝（4xx）不记 ERROR：访问日志与指标已经记下状态码", async () => {
+    const token = await bff.jwks.sign({ sub: "u1", roles: ["viewer"] });
+    await bff.run(MY_TASKS, { token, variables: { status: "PENDING" } });
+    const lines = bff.logs().split("\n").filter((l) => l.includes("返回 401"));
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      // SDK 的 logger 把级别写成标签（"info" / "warn" / "error"）
+      expect(["debug", "info", "warn"]).toContain(JSON.parse(line).level);
+    }
+  });
+
   it("下游 403：字段错误带 FORBIDDEN", async () => {
     const token = await bff.jwks.sign({ sub: "u1", roles: ["viewer"] });
     const res = await bff.run(MY_TASKS, { token, variables: { status: "APPROVED" } });
