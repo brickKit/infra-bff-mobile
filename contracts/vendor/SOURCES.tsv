@@ -1,5 +1,5 @@
 # 每个 .proto 都是上游发布 tag 上的原文，只读拷贝，不生成代码（运行期由 @grpc/proto-loader 加载）。
 # 更新只从对方的发布 tag 取：git -C <上游仓库> show <tag>:contracts/<路径> > contracts/vendor/<路径>，并改这里的 tag。
 # path	repository	tag
-mdm/customer/v1/customer.proto	https://github.com/brickKit/mdm-customer	2.0.0
+mdm/customer/v1/customer.proto	https://github.com/brickKit/mdm-customer	2.0.1
 mdm/product/v1/product.proto	https://github.com/brickKit/mdm-product	2.0.0

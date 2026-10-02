@@ -42,12 +42,12 @@ test-e2e:  ## 对真实下游跑端到端用例。缺 TEST_* 变量时失败，�
 migrate-idempotent:  ## 不适用：本组件不连数据库，没有迁移
 	@echo "不适用：$(ID) 不连数据库，没有迁移可跑"
 
-dag-check:  ## 每条依赖都是 @$(VERSION) 的 optional：本组件在任何装配组合下都要能起来，缺哪个依赖就裁掉哪些字段
-	@python3 -c 'import sys, yaml; \
+dag-check:  ## 每条依赖都是钉确切 2.x.y 版本的 optional：本组件在任何装配组合下都要能起来，缺哪个依赖就裁掉哪些字段
+	@python3 -c 'import re, sys, yaml; \
 	m = yaml.safe_load(open("component.yaml")); \
 	deps = (m.get("dependencies") or {}).get("components") or []; \
-	bad = [str(d) for d in deps if not (isinstance(d, dict) and d.get("optional") is True and str(d.get("id", "")).endswith("@2.0.0"))]; \
-	print("\n".join("✗ 不是 @2.0.0 的 optional 依赖：" + b for b in bad)) if bad else print("✓ %d 条依赖全部是 @2.0.0 的 optional，天然无环" % len(deps)); \
+	bad = [str(d) for d in deps if not (isinstance(d, dict) and d.get("optional") is True and re.search(r"@2\.[0-9]+\.[0-9]+$$", str(d.get("id", ""))))]; \
+	print("\n".join("✗ 不是钉确切 2.x.y 版本的 optional 依赖：" + b for b in bad)) if bad else print("✓ %d 条依赖全部是钉确切 2.x.y 版本的 optional，天然无环" % len(deps)); \
 	sys.exit(1 if bad else 0)'
 
 contract-check:  ## schema.graphql 合法且相对上一个发布 tag 只增不改；vendor 的 proto 镜像 buf lint
