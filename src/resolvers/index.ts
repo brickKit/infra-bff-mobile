@@ -9,7 +9,7 @@ import { customerResolvers } from "./customer.js";
 import { productResolvers } from "./product.js";
 import { orderResolvers } from "./order.js";
 import { inventoryResolvers } from "./inventory.js";
-import { taskResolvers } from "./task.js";
+import { taskMutations, taskResolvers } from "./task.js";
 
 export const resolvers: IResolvers = {
   Query: {
@@ -18,5 +18,8 @@ export const resolvers: IResolvers = {
     ...orderResolvers,
     ...inventoryResolvers,
     ...taskResolvers,
+  },
+  Mutation: {
+    ...taskMutations,
   },
 };

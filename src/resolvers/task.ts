@@ -1,10 +1,11 @@
 /**
  * infra-workflow：走 REST 转发，不走 gRPC——owner / org 两维数据权限只在对方
- * REST 面生效。
+ * REST 面生效。同意 / 驳回是纯转发：客户端给的幂等键原样放进 body 的
+ * `idempotency_key`，本组件不生成、不改写，也不在这里编排别的下游。
  */
 
 import { requirePermission } from "besdk";
-import { forwardGet } from "../clients/restForward.js";
+import { forwardGet, forwardPost, segment } from "../clients/restForward.js";
 import { DEP_INFRA_WORKFLOW } from "../dependencies.js";
 import type { AppContext } from "../context.js";
 
@@ -23,6 +24,15 @@ interface RawTask {
   due_at: string | null;
   created_at: string;
   updated_at: string;
+  /** 只有详情（GET /tasks/{id}、approve / reject 的响应）带审批历史 */
+  actions?: RawTaskAction[];
+}
+
+interface RawTaskAction {
+  actor_sub: string;
+  action: string;
+  comment: string;
+  created_at: string;
 }
 
 interface TaskListResponse {
@@ -48,7 +58,12 @@ function taskToDTO(raw: RawTask) {
     dueAt: raw.due_at,
     createdAt: raw.created_at,
     updatedAt: raw.updated_at,
+    actions: raw.actions ? raw.actions.map(actionToDTO) : null,
   };
+}
+
+function actionToDTO(raw: RawTaskAction) {
+  return { actorSub: raw.actor_sub, action: raw.action, comment: raw.comment, createdAt: raw.created_at };
 }
 
 interface MyTasksArgs {
@@ -70,9 +85,42 @@ async function listMyTasks(args: MyTasksArgs, context: AppContext) {
   return { tasks: res.tasks.map(taskToDTO), nextCursor: res.next_cursor };
 }
 
+async function getTask(id: string, context: AppContext) {
+  const raw = (await forwardGet(context, DEP_INFRA_WORKFLOW, `/infra/workflow/tasks/${segment(id)}`)) as RawTask | null;
+  return raw ? taskToDTO(raw) : null;
+}
+
+interface ActArgs {
+  id: string;
+  comment?: string | null;
+  idempotencyKey: string;
+}
+
+async function actOnTask(action: "approve" | "reject", args: ActArgs, context: AppContext) {
+  const body: Record<string, string> = { idempotency_key: args.idempotencyKey };
+  if (args.comment != null) body.comment = args.comment;
+  const path = `/infra/workflow/tasks/${segment(args.id)}/${action}`;
+  return taskToDTO((await forwardPost(context, DEP_INFRA_WORKFLOW, path, body)) as RawTask);
+}
+
 export const taskResolvers = {
   myTasks: requirePermission(
     "infra.bff-mobile.task.view",
     async (_source: unknown, args: MyTasksArgs, context: AppContext) => listMyTasks(args, context),
+  ),
+  task: requirePermission(
+    "infra.bff-mobile.task.view",
+    async (_source: unknown, args: { id: string }, context: AppContext) => getTask(args.id, context),
+  ),
+};
+
+export const taskMutations = {
+  approveTask: requirePermission(
+    "infra.bff-mobile.task.act",
+    async (_source: unknown, args: ActArgs, context: AppContext) => actOnTask("approve", args, context),
+  ),
+  rejectTask: requirePermission(
+    "infra.bff-mobile.task.act",
+    async (_source: unknown, args: ActArgs, context: AppContext) => actOnTask("reject", args, context),
   ),
 };

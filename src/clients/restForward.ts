@@ -63,12 +63,10 @@ function baseUrl(caller: Caller, dep: DependencyId): string {
 /**
  * 打 `dep` 的 REST 面，原样带上调用者的 Authorization。`path` 以 `/` 开头且
  * 带上对方的路径前缀（如 `/infra/workflow/tasks?cursor=…`）。404 返回 `null`
- * （调用方按"查不到"处理），其余非 2xx 抛 `RestForwardError`。
+ * （读操作按"查不到"处理），其余非 2xx 见 `rejected`。
  */
 export async function forwardGet(caller: Caller, dep: DependencyId, path: string): Promise<unknown> {
-  const resp = await fetch(`${baseUrl(caller, dep)}${path}`, {
-    headers: caller.auth ? { authorization: caller.auth } : {},
-  });
+  const resp = await fetch(`${baseUrl(caller, dep)}${path}`, { headers: authHeaders(caller) });
   if (resp.status === 404) {
     return null;
   }
@@ -76,6 +74,26 @@ export async function forwardGet(caller: Caller, dep: DependencyId, path: string
     rejected(caller, dep, path, resp.status);
   }
   return resp.json();
+}
+
+/**
+ * 以 JSON body POST 到 `dep` 的 REST 面。写操作的 404 是错误（NOT_FOUND），
+ * 不是 null：客户端要知道这次操作没有发生。
+ */
+export async function forwardPost(caller: Caller, dep: DependencyId, path: string, body: unknown): Promise<unknown> {
+  const resp = await fetch(`${baseUrl(caller, dep)}${path}`, {
+    method: "POST",
+    headers: { ...authHeaders(caller), "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    rejected(caller, dep, path, resp.status);
+  }
+  return resp.json();
+}
+
+function authHeaders(caller: Caller): Record<string, string> {
+  return caller.auth ? { authorization: caller.auth } : {};
 }
 
 /** 下游拒绝：先记日志（哪个依赖、哪个路径、什么状态码），再按 VISIBLE_STATUS 决定客户端看到什么。 */
