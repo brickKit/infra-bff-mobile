@@ -13,7 +13,7 @@ The AI guide to developing this component. How to use it, its boundaries and con
 | `src/schema.ts` | Parses `contracts/schema.graphql` and drops the `Query` / `Mutation` fields of absent dependencies |
 | `src/dependencies.ts` | Field → dependency table (`FIELD_TO_DEPENDENCY`) and which dependencies this assembly has |
 | `src/context.ts` | Per-request context: the caller (config, `Authorization`, logger) and fresh DataLoaders |
-| `src/persistedOperations.ts` | Reads the persisted-operation manifest once at start |
+| `src/persistedOperations.ts` | Reads the persisted-operation manifest once at start: `PERSISTED_OPERATIONS_JSON` when set, otherwise the file in the image |
 | `src/clients/grpcProto.ts` | Loads the vendored `.proto` at run time; `callUnary` and the gRPC status → GraphQL error mapping |
 | `src/clients/customer.ts` | gRPC `BatchGet` of mdm/customer |
 | `src/clients/product.ts` | gRPC `BatchGet` and `List` (search) of mdm/product |
@@ -63,7 +63,8 @@ The three skipped tests need real downstreams: `make test-e2e` runs them and fai
 | Throw a plain `Error` for a downstream `4xx` or a caller-error gRPC status | The client sees `INTERNAL_SERVER_ERROR` and cannot tell "log in again" from "server down"; Yoga logs it as ERROR | Map it through `VISIBLE_STATUS` / `VISIBLE_GRPC_STATUS` to a `GraphQLError` |
 | Copy a vendored `.proto` from an upstream's working tree | The field numbers can change before release; the BFF decodes a different message than the upstream sends | Take it only from the upstream's release tag and record the tag in `contracts/vendor/SOURCES.tsv` |
 | Guess field names from the `.proto` | `proto-loader` turns `next_cursor` into `nextCursor` and returns enums as `PRODUCT_STATUS_ACTIVE` | `keepCase: false`, `enums: String`; strip prefixes with `stripEnumPrefix` |
-| Build the image with the repository's empty manifest and expect queries to work | Every query is refused with `PersistedQueryOnly` (HTTP `400`); `/healthz` is green | Only manifest hashes are accepted; the mobile app's build supplies the manifest |
+| Build the image with the repository's empty manifest and expect queries to work | Every query is refused with `PersistedQueryOnly` (HTTP `400`); `/healthz` is green | Only manifest hashes are accepted; the mobile app's build supplies the manifest, in the image or through `PERSISTED_OPERATIONS_JSON` |
+| Expect `PERSISTED_OPERATIONS_JSON` to add to the built-in manifest | The queries only in the image's manifest answer `PersistedQueryNotFound` | It replaces the built-in manifest entirely; a merged list is one nobody reviewed |
 
 ## Before changing code
 

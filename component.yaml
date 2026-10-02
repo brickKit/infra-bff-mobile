@@ -42,6 +42,7 @@ configSchema:
     OTEL_BASE_URL: {type: string, default: ""}
     AUTHZ_BUNDLE_URL: {type: string}
     IAM_JWKS_URL: {type: string}
+    PERSISTED_OPERATIONS_JSON: {type: string, default: ""}
   required: [AUTHZ_BUNDLE_URL, IAM_JWKS_URL]
 
 deployment:

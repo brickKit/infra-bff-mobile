@@ -11,7 +11,7 @@ import { buildSchema } from "./schema.js";
 import { resolveAvailableDependencies } from "./dependencies.js";
 import { resolvers } from "./resolvers/index.js";
 import { contextFactory } from "./context.js";
-import { getPersistedOperation } from "./persistedOperations.js";
+import { loadPersistedOperations } from "./persistedOperations.js";
 
 export async function createModule(rt: Runtime): Promise<Module> {
   const available = resolveAvailableDependencies(rt.config);
@@ -20,7 +20,7 @@ export async function createModule(rt: Runtime): Promise<Module> {
   const httpHandler = newGraphQLServer(rt, {
     schema,
     context: contextFactory(rt),
-    getPersistedOperation,
+    getPersistedOperation: loadPersistedOperations(rt.config),
   });
 
   // 类型断言不是绕过类型安全：`Module.httpHandler` 把 context 类型写死成

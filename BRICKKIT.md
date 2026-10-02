@@ -16,14 +16,14 @@ The GraphQL backend-for-frontend of the mobile app: one query fills one mobile p
 - Any business rule, including small ones ("can this order be cancelled" is `erp/sales`'s answer): the component that owns the data.
 - Who may see which rows: each downstream component's REST layer applies its own data scopes to the caller's token, which this component forwards unchanged.
 - Approval logic, notification delivery, stock, orders, opportunities, master data: `infra/workflow`, `infra/notification`, `erp/inventory`, `erp/sales`, `crm/opportunity`, `mdm/customer`, `mdm/product`.
-- The list of queries the mobile app may send (the persisted-operation manifest): produced by the mobile app's build, shipped inside this component's image.
+- The list of queries the mobile app may send (the persisted-operation manifest): produced by the mobile app's build, shipped inside this component's image or supplied at deploy time through `PERSISTED_OPERATIONS_JSON`.
 - PC pages and printing: the PC frontend calls components through the gateway; printing is `infra/print`.
 
 ## Before you deploy
 
 - **No database, no NATS, no object storage.** Nothing to create.
 - **Authorization** (`infra/authz`) and **identity** (`infra/iam-casdoor`, or any IAM serving a JWKS) reachable at `AUTHZ_BUNDLE_URL` and `IAM_JWKS_URL` for any field to answer anything but errors. They are configuration, not dependencies: the component starts without them.
-- **The persisted-operation manifest** `contracts/persisted-operations.json` (hash → query text) must contain the mobile app's queries before the image is built. The repository holds an empty manifest, which rejects every query: replace it with the one the mobile app's build produces, and release the two together.
+- **The persisted-operation manifest** (hash → query text) must contain the mobile app's queries. Either build it into the image as `contracts/persisted-operations.json`, or supply it at deploy time with `PERSISTED_OPERATIONS_JSON: file://<manifest file>`, which replaces the built-in one. The repository holds an empty manifest, so with neither every query is rejected. Release the manifest together with the mobile app.
 - **The gateway** routes `/graphql` to this component (edge route in `assembly.yaml`).
 
 ## Dependencies
@@ -51,6 +51,7 @@ The authorization bundle and the JWKS are fetched from the URLs in the configura
 | `AUTHZ_BUNDLE_URL` | URL of the authorization bundle the permission check polls, for example `http://infra-authz-2-0-0:8223/authz/bundle`. Required: without it every field answers `503`. Keep it in step with the authz version the project runs. |
 | `IAM_JWKS_URL` | URL of the JWKS used to verify user tokens locally, for example `http://infra-iam-casdoor-2-0-0:8200/.well-known/jwks.json`. Required: without it every field answers `403`. |
 | `OTEL_BASE_URL` | OpenTelemetry collector base URL; empty (the default) exports nothing. |
+| `PERSISTED_OPERATIONS_JSON` | The persisted-operation manifest as a JSON object (hash → query text), usually written `file://<manifest file>` so that the platform injects the file's content. Empty (the default) uses the manifest built into the image. When set, it replaces that manifest entirely (no merge); a value that is not a JSON object of strings stops the component at start. It changes which queries are allowed, never whether only listed queries are allowed. |
 
 Dependency addresses are injected by the platform (`<ID>_ENDPOINT`, and `<ID>_GRPC_ENDPOINT` for the gRPC ports of `mdm/customer` and `mdm/product`); there is nothing to configure for them.
 

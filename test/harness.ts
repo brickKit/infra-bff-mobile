@@ -6,7 +6,8 @@
  * 子进程的工作目录是一个临时目录：里面的 `component.yaml` 换了一个空闲端口
  * （不占 8500，与 e2e 和本机其它进程互不干扰），`contracts/` 里的
  * `schema.graphql` 与 `vendor/` 链接回仓库，`persisted-operations.json` 只装
- * 本次测试要发的查询——仓库里的清单文件一个字节都不碰。
+ * 本次测试要发的查询——仓库里的清单文件一个字节都不碰。清单也可以经配置键
+ * `PERSISTED_OPERATIONS_JSON` 给（`manifestConfig`），那时它整份替换文件里的清单。
  *
  * 子进程的环境只给本次要的键，不继承本机终端：终端里残留的 `*_ENDPOINT`
  * 会让"某依赖缺席"的用例悄悄变成"某依赖在场"。
@@ -40,9 +41,16 @@ async function freePort(): Promise<number> {
   return port;
 }
 
-async function waitForListen(port: number, deadlineMs: number, logs: () => string): Promise<void> {
+async function waitForListen(
+  port: number,
+  deadlineMs: number,
+  logs: () => string,
+  exited: () => boolean = () => false,
+): Promise<void> {
   const deadline = Date.now() + deadlineMs;
   while (Date.now() < deadline) {
+    // 子进程已经退出（例如启动时配置非法）：不用等满超时
+    if (exited()) throw new Error(`子进程在开始监听 ${port} 之前退出；子进程输出：\n${logs()}`);
     const ok = await new Promise<boolean>((resolve) => {
       const sock = connect({ host: "127.0.0.1", port }, () => {
         sock.end();
@@ -214,6 +222,8 @@ export interface StartBffOptions {
   queries: string[];
   /** bundle 里的角色 → 权限键 */
   roles: Record<string, string[]>;
+  /** 给了就作为配置键 PERSISTED_OPERATIONS_JSON 的值原样注入（可以是非法 JSON，测启动失败） */
+  manifestConfig?: string;
 }
 
 export async function startBff(opts: StartBffOptions): Promise<BffProcess> {
@@ -243,6 +253,7 @@ export async function startBff(opts: StartBffOptions): Promise<BffProcess> {
       IAM_JWKS_URL: jwks.url,
       AUTHZ_BUNDLE_URL: bundle.url,
       ...opts.endpoints,
+      ...(opts.manifestConfig === undefined ? {} : { PERSISTED_OPERATIONS_JSON: opts.manifestConfig }),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -250,10 +261,14 @@ export async function startBff(opts: StartBffOptions): Promise<BffProcess> {
   child.stderr?.on("data", (c: Buffer) => (output += c.toString()));
 
   const logs = () => output;
+  const exited = () => child.exitCode !== null || child.signalCode !== null;
   try {
-    await waitForListen(port, 15_000, logs);
+    await waitForListen(port, 15_000, logs, exited);
   } catch (err) {
     child.kill("SIGKILL");
+    await jwks.close();
+    await bundle.close();
+    await rm(dir, { recursive: true, force: true });
     throw err;
   }
 

@@ -16,14 +16,14 @@
 - 任何业务规则，包括看起来很小的（"这张订单能不能取消"由 `erp/sales` 回答）：归拥有那份数据的组件。
 - 谁能看哪些行：每个下游组件的 REST 层按调用者的 token 套自己的数据范围，本组件原样转发这个 token。
 - 审批逻辑、通知投递、库存、订单、商机、主数据：分别归 `infra/workflow`、`infra/notification`、`erp/inventory`、`erp/sales`、`crm/opportunity`、`mdm/customer`、`mdm/product`。
-- 移动端允许发哪些查询（持久化查询清单）：由移动端 App 的构建产出，随本组件的镜像发布。
+- 移动端允许发哪些查询（持久化查询清单）：由移动端 App 的构建产出，随本组件的镜像发布，或在部署时经 `PERSISTED_OPERATIONS_JSON` 给出。
 - PC 端页面与打印：PC 前端经网关直接调各组件；打印归 `infra/print`。
 
 ## 部署前准备
 
 - **不连数据库、不连 NATS、不用对象存储。** 什么都不用建。
 - **授权**（`infra/authz`）与**身份**（`infra/iam-casdoor`，或任何提供 JWKS 的 IAM）要能在 `AUTHZ_BUNDLE_URL`、`IAM_JWKS_URL` 访问到，否则每个字段都只回错误。它们是配置，不是依赖：没有它们组件照样启动。
-- **持久化查询清单** `contracts/persisted-operations.json`（哈希 → 查询文本）在构建镜像之前必须装着移动端 App 的查询。仓库里是空清单，拒绝一切查询：换成移动端 App 构建产出的那份，两者一起发布。
+- **持久化查询清单**（哈希 → 查询文本）必须装着移动端 App 的查询。要么构建进镜像（`contracts/persisted-operations.json`），要么部署时用 `PERSISTED_OPERATIONS_JSON: file://<清单文件>` 给出，它整份替换镜像里的那份。仓库里是空清单，两样都没有时拒绝一切查询。清单与移动端 App 一起发布。
 - **网关**把 `/graphql` 路由到本组件（`assembly.yaml` 里的网关路由）。
 
 ## 依赖说明
@@ -51,6 +51,7 @@
 | `AUTHZ_BUNDLE_URL` | 权限检查轮询的授权包 URL，例如 `http://infra-authz-2-0-0:8223/authz/bundle`。必填：没有它每个字段都回 `503`。与项目里运行的 authz 版本保持一致。 |
 | `IAM_JWKS_URL` | 本地验用户 token 用的 JWKS URL，例如 `http://infra-iam-casdoor-2-0-0:8200/.well-known/jwks.json`。必填：没有它每个字段都回 `403`。 |
 | `OTEL_BASE_URL` | OpenTelemetry collector 的基础 URL；为空（默认）时什么都不导出。 |
+| `PERSISTED_OPERATIONS_JSON` | 持久化查询清单本身，JSON 对象（哈希 → 查询文本），一般写成 `file://<清单文件>`，由平台注入文件内容。为空（默认）时用镜像里的清单。给了就整份替换那份清单（不合并）；值不是"字符串到字符串"的 JSON 对象时组件启动失败。它只改变允许哪些查询，不改变"只认清单里的查询"。 |
 
 依赖的地址由平台注入（`<ID>_ENDPOINT`，`mdm/customer` 与 `mdm/product` 的 gRPC 端口是 `<ID>_GRPC_ENDPOINT`），不需要配置。
 

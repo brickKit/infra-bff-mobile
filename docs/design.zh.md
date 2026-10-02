@@ -47,7 +47,7 @@ GraphQL over HTTP，唯一端点 `POST /graphql`，另有 `/healthz`。不对外
 
 **写操作**：`approveTask`、`rejectTask`，各自是对 `infra/workflow` 的一次 `POST` 转发，返回处理后的待办详情。`idempotencyKey` 可选：客户端给了（每次用户操作一个、重试时原样再发）就作为 `idempotency_key` 转发，没给就不带这个字段。去重不靠它，因为 workflow 的 REST 层按状态去重：待办只会离开一次 `PENDING`，所以成功之后的重试得到 `CONFLICT`（"已处理，刷新"），绝不会第二次同意。以后任何写操作的判据：对一个组件调一次；调两次就是编排，退回业务组件。
 
-**限制**（在 SDK 里写死）：深度 5、复杂度 100、只认持久化查询。清单（哈希 → 查询文本，Apollo APQ 形式）由移动端 App 的构建产出、随本组件镜像发布；仓库里的清单是空的，所以刚构建出来的镜像拒绝一切查询。前端与本组件一起发布。
+**限制**（在 SDK 里写死）：深度 5、复杂度 100、只认持久化查询。清单（哈希 → 查询文本，Apollo APQ 形式）由移动端 App 的构建产出，要么随本组件镜像发布，要么部署时经 `PERSISTED_OPERATIONS_JSON`（一般写 `file://`）给出，后者整份替换镜像里的清单：两份合并出来的清单没有人审过。仓库里的清单是空的，所以刚构建出来、又什么都没配的镜像拒绝一切查询。配置给了却不是"字符串到字符串"的 JSON 对象时启动失败，不带着空清单悄悄起来。前端与它的清单一起发布。
 
 **错误**：调用者能据此行动的下游拒绝以 `extensions.code` 保留原意，REST（`400` / `401` / `403` / `404` / `409`）与 gRPC 一样（`INVALID_ARGUMENT` / `FAILED_PRECONDITION` / `OUT_OF_RANGE` → `BAD_USER_INPUT`，`UNAUTHENTICATED`，`PERMISSION_DENIED` → `FORBIDDEN`，`NOT_FOUND`，`ALREADY_EXISTS` / `ABORTED` → `CONFLICT`：与 Go SDK 映射到 HTTP 的是同一组对应），并记一条 warn，写明依赖、路径或方法、状态。其余（`5xx`、`UNAVAILABLE`、连接被拒）掩盖成 `Unexpected error.` 并记成错误：只有这些需要运维。读操作回 `404` 是 `null`；写操作回 `404` 是 `NOT_FOUND` 错误，因为客户端必须知道这次操作没有发生。
 
@@ -109,7 +109,7 @@ GraphQL over HTTP，唯一端点 `POST /graphql`，另有 `/healthz`。不对外
 
 | 问题 | 目前的答案 |
 |---|---|
-| 持久化查询清单由谁产出，App 与本组件怎么一起定版本？ | 由移动端 App 的构建产出、拷进本镜像；发布耦合等移动端 App 有了之后写进部署流程 |
+| 持久化查询清单由谁产出，App 与本组件怎么一起定版本？ | 由移动端 App 的构建产出，拷进本镜像或部署时经 `PERSISTED_OPERATIONS_JSON` 给出；发布耦合等移动端 App 有了之后写进部署流程 |
 | 弱网下一个页面一个大查询，是否比几个小查询快？ | 待实测；判据是端到端首屏时间，不是请求数 |
 | `infra/workflow` 的 REST 同意 / 驳回不认转发过去的 `idempotency_key`，按状态去重（成功后重试 → `CONFLICT`） | 安全（绝不会同意两次）；如果 App 要的是重放第一次的结果而不是 `CONFLICT`，得由 workflow 的 REST 层接受这个键 |
 | 下游契约变了不会自动传到手写 schema 与 vendor 的 `.proto` | 靠对着桩的映射测试与对真实下游的端到端运行保持同步；没有建自动对比上游契约的检查 |
