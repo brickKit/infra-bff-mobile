@@ -1,7 +1,8 @@
 /**
  * infra-workflow：走 REST 转发，不走 gRPC——owner / org 两维数据权限只在对方
- * REST 面生效。同意 / 驳回是纯转发：客户端给的幂等键原样放进 body 的
- * `idempotency_key`，本组件不生成、不改写，也不在这里编排别的下游。
+ * REST 面生效。同意 / 驳回是纯转发：客户端给了幂等键就原样放进 body 的
+ * `idempotency_key`，没给就不带这个字段（workflow 按待办状态去重，不靠它）；
+ * 本组件不生成、不改写，也不在这里编排别的下游。
  */
 
 import { requirePermission } from "besdk";
@@ -93,11 +94,13 @@ async function getTask(id: string, context: AppContext) {
 interface ActArgs {
   id: string;
   comment?: string | null;
-  idempotencyKey: string;
+  idempotencyKey?: string | null;
 }
 
 async function actOnTask(action: "approve" | "reject", args: ActArgs, context: AppContext) {
-  const body: Record<string, string> = { idempotency_key: args.idempotencyKey };
+  const body: Record<string, string> = {};
+  // 空串与没给同样处理：不发一个空的 idempotency_key
+  if (args.idempotencyKey) body.idempotency_key = args.idempotencyKey;
   if (args.comment != null) body.comment = args.comment;
   const path = `/infra/workflow/tasks/${segment(args.id)}/${action}`;
   return taskToDTO((await forwardPost(context, DEP_INFRA_WORKFLOW, path, body)) as RawTask);

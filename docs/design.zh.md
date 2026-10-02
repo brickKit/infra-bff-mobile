@@ -45,7 +45,7 @@ GraphQL over HTTP，唯一端点 `POST /graphql`，另有 `/healthz`。不对外
 
 `inventoryBalance`、`order`、`task`、`opportunity` 按已知 id 读一行，没有 DataLoader。`inventoryBalances` 读 `GET /balances/list`（一个产品在调用者各仓库的余额）；`GET /balances` 保持单条的语义。`myOpportunities` 固定带 `view=mine`：移动端页面只看自己的商机；看部门的是 PC 端页面。
 
-**写操作**：`approveTask`、`rejectTask`，各自是对 `infra/workflow` 的一次 `POST` 转发，返回处理后的待办详情。客户端每次用户操作生成一个 `idempotencyKey`、重试时原样再发；本组件把它作为 `idempotency_key` 转发。workflow 的 REST 层改按状态去重：待办只会离开一次 `PENDING`，所以成功之后的重试得到 `CONFLICT`（"已处理，刷新"），绝不会第二次同意。以后任何写操作的判据：对一个组件调一次；调两次就是编排，退回业务组件。
+**写操作**：`approveTask`、`rejectTask`，各自是对 `infra/workflow` 的一次 `POST` 转发，返回处理后的待办详情。`idempotencyKey` 可选：客户端给了（每次用户操作一个、重试时原样再发）就作为 `idempotency_key` 转发，没给就不带这个字段。去重不靠它，因为 workflow 的 REST 层按状态去重：待办只会离开一次 `PENDING`，所以成功之后的重试得到 `CONFLICT`（"已处理，刷新"），绝不会第二次同意。以后任何写操作的判据：对一个组件调一次；调两次就是编排，退回业务组件。
 
 **限制**（在 SDK 里写死）：深度 5、复杂度 100、只认持久化查询。清单（哈希 → 查询文本，Apollo APQ 形式）由移动端 App 的构建产出、随本组件镜像发布；仓库里的清单是空的，所以刚构建出来的镜像拒绝一切查询。前端与本组件一起发布。
 

@@ -1,6 +1,7 @@
 /**
  * infra-workflow 的待办详情与同意 / 驳回：REST 转发，Authorization 原样带上，
- * 写操作把客户端给的幂等键原样带给下游（本组件不生成、不改写幂等键）。
+ * 写操作把客户端给的幂等键原样带给下游（本组件不生成、不改写幂等键）；幂等键
+ * 是可选的：没给就不往 body 里放这个字段（workflow 按待办状态去重，不靠它）。
  */
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -13,6 +14,9 @@ const APPROVE = `mutation Approve($id: ID!, $comment: String, $key: String!) {
 const REJECT = `mutation Reject($id: ID!, $comment: String!, $key: String!) {
   rejectTask(id: $id, comment: $comment, idempotencyKey: $key) { id status }
 }`;
+// 不带幂等键的写法：契约里 idempotencyKey 是可选参数
+const APPROVE_NO_KEY = `mutation ApproveNoKey($id: ID!) { approveTask(id: $id) { id status } }`;
+const REJECT_NO_KEY = `mutation RejectNoKey($id: ID!, $comment: String!) { rejectTask(id: $id, comment: $comment) { id status } }`;
 
 function rawTask(id: string, status: string, actions: unknown[]) {
   return {
@@ -49,7 +53,7 @@ beforeAll(async () => {
   });
   bff = await startBff({
     endpoints: { INFRA_WORKFLOW_ENDPOINT: workflow.url },
-    queries: [TASK, APPROVE, REJECT],
+    queries: [TASK, APPROVE, REJECT, APPROVE_NO_KEY, REJECT_NO_KEY],
     roles: {
       viewer: ["infra.bff-mobile.task.view"],
       actor: ["infra.bff-mobile.task.view", "infra.bff-mobile.task.act"],
@@ -148,5 +152,23 @@ describe("approveTask / rejectTask", () => {
   it("不带 token：HTTP 401", async () => {
     const res = await bff.run(REJECT, { variables: { id: "42", comment: "x", key: "k-401" } });
     expect(res.status).toBe(401);
+  });
+
+  it("不给幂等键：approveTask 照常转发，body 里没有 idempotency_key 字段（不发空串）", async () => {
+    const token = await bff.jwks.sign({ sub: "u1", roles: ["actor"] });
+    const res = await bff.run(APPROVE_NO_KEY, { token, variables: { id: "42" } });
+    expect(res.body.errors, JSON.stringify(res.body)).toBeUndefined();
+    expect(lastRequest().url).toBe("/infra/workflow/tasks/42/approve");
+    expect(lastRequest().body).toEqual({});
+    expect(res.body.data?.approveTask).toEqual({ id: "42", status: "APPROVED" });
+  });
+
+  it("不给幂等键：rejectTask 照常转发，body 只有附言", async () => {
+    const token = await bff.jwks.sign({ sub: "u1", roles: ["actor"] });
+    const res = await bff.run(REJECT_NO_KEY, { token, variables: { id: "42", comment: "金额不对" } });
+    expect(res.body.errors, JSON.stringify(res.body)).toBeUndefined();
+    expect(lastRequest().url).toBe("/infra/workflow/tasks/42/reject");
+    expect(lastRequest().body).toEqual({ comment: "金额不对" });
+    expect(res.body.data?.rejectTask).toEqual({ id: "42", status: "REJECTED" });
   });
 });

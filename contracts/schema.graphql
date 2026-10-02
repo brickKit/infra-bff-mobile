@@ -67,12 +67,12 @@ type Query {
 
 type Mutation {
   # ── infra-workflow：同意 / 驳回一条待办，返回处理后的详情（含 actions） ──
-  # idempotencyKey 由客户端生成、每次用户操作一个，重试时原样再发；本组件原样
-  # 转发（body 的 idempotency_key）。待办只能从待处理状态被处理一次：第一次已经
-  # 成功时，重试得到 CONFLICT，刷新即可，不会处理两次。
-  approveTask(id: ID!, comment: String, idempotencyKey: String!): Task!
+  # idempotencyKey 可选：给了就原样转发（body 的 idempotency_key），没给就不带这个
+  # 字段；本组件不生成、不改写。去重不靠它：待办只能从待处理状态被处理一次，第一次
+  # 已经成功时，重试得到 CONFLICT，刷新即可，不会处理两次。
+  approveTask(id: ID!, comment: String, idempotencyKey: String): Task!
   # 驳回必须带附言：发起人要知道该改什么。
-  rejectTask(id: ID!, comment: String!, idempotencyKey: String!): Task!
+  rejectTask(id: ID!, comment: String!, idempotencyKey: String): Task!
 }
 
 # ============ mdm-customer ============
