@@ -80,7 +80,7 @@ export const orderResolvers = {
   order: requirePermission(
     "infra.bff-mobile.order.view",
     async (_source: unknown, args: { id: string }, context: AppContext) => {
-      const raw = (await forwardGet(DEP_ERP_SALES, context.auth, `/erp/sales/orders/${args.id}`)) as RawOrder | null;
+      const raw = (await forwardGet(context.config, DEP_ERP_SALES, context.auth, `/erp/sales/orders/${args.id}`)) as RawOrder | null;
       return raw ? toDTO(raw) : null;
     },
   ),
@@ -98,7 +98,7 @@ export const orderResolvers = {
       const query = params.toString();
       const path = `/erp/sales/orders${query ? `?${query}` : ""}`;
 
-      const res = (await forwardGet(DEP_ERP_SALES, context.auth, path)) as OrderListResponse;
+      const res = (await forwardGet(context.config, DEP_ERP_SALES, context.auth, path)) as OrderListResponse;
       return {
         orders: res.orders.map(toDTO),
         nextCursor: res.next_cursor,

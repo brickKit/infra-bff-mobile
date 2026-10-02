@@ -4,7 +4,7 @@
  */
 
 import type { ServiceClientConstructor } from "@grpc/grpc-js";
-import { userClient } from "besdk";
+import { userClient, type Config } from "besdk";
 import { callUnary, loadVendorProto } from "./grpcProto.js";
 import { DEP_MDM_PRODUCT } from "../dependencies.js";
 
@@ -73,9 +73,13 @@ function toDTO(raw: RawProduct): ProductDTO {
   };
 }
 
-export async function batchGetProducts(auth: string, ids: readonly string[]): Promise<Array<ProductDTO | undefined>> {
+export async function batchGetProducts(
+  config: Config,
+  auth: string,
+  ids: readonly string[],
+): Promise<Array<ProductDTO | undefined>> {
   if (ids.length === 0) return [];
-  const { target, credentials, options } = userClient(auth, DEP_MDM_PRODUCT, "grpc");
+  const { target, credentials, options } = userClient(config, auth, DEP_MDM_PRODUCT, "grpc");
   const client = new ProductServiceCtor(target, credentials, options);
   try {
     const res = await callUnary<{ ids: readonly string[] }, BatchGetResponse>(

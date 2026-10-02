@@ -5,7 +5,7 @@
  */
 
 import DataLoader from "dataloader";
-import { createBatchGetLoader } from "besdk";
+import { createBatchGetLoader, type Config } from "besdk";
 import { batchGetCustomers, type CustomerDTO } from "./clients/customer.js";
 import { batchGetProducts, type ProductDTO } from "./clients/product.js";
 
@@ -17,6 +17,7 @@ export interface AppContext {
   [key: string]: unknown;
   request: Request;
   auth: string;
+  config: Config;
   customerLoader: DataLoader<string, CustomerDTO | undefined>;
   productLoader: DataLoader<string, ProductDTO | undefined>;
 }
@@ -26,12 +27,15 @@ function rawAuthHeader(request: Request): string {
   return request.headers.get("authorization") ?? "";
 }
 
-export function buildContext({ request }: { request: Request }): AppContext {
-  const auth = rawAuthHeader(request);
-  return {
-    request,
-    auth,
-    customerLoader: createBatchGetLoader((ids) => batchGetCustomers(auth, ids)),
-    productLoader: createBatchGetLoader((ids) => batchGetProducts(auth, ids)),
+export function contextFactory(config: Config): (init: { request: Request }) => AppContext {
+  return ({ request }) => {
+    const auth = rawAuthHeader(request);
+    return {
+      request,
+      auth,
+      config,
+      customerLoader: createBatchGetLoader((ids) => batchGetCustomers(config, auth, ids)),
+      productLoader: createBatchGetLoader((ids) => batchGetProducts(config, auth, ids)),
+    };
   };
 }

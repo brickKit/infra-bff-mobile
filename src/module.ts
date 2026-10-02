@@ -10,16 +10,16 @@ import { newGraphQLServer } from "besdk";
 import { buildSchema } from "./schema.js";
 import { resolveAvailableDependencies } from "./dependencies.js";
 import { resolvers } from "./resolvers/index.js";
-import { buildContext } from "./context.js";
+import { contextFactory } from "./context.js";
 import { getPersistedOperation } from "./persistedOperations.js";
 
 export async function createModule(rt: Runtime): Promise<Module> {
-  const available = resolveAvailableDependencies();
+  const available = resolveAvailableDependencies(rt.config);
   const schema = buildSchema({ available, resolvers });
 
   const httpHandler = newGraphQLServer(rt, {
     schema,
-    context: buildContext,
+    context: contextFactory(rt.config),
     getPersistedOperation,
   });
 

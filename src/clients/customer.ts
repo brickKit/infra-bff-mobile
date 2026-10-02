@@ -6,7 +6,7 @@
  */
 
 import type { ServiceClientConstructor } from "@grpc/grpc-js";
-import { userClient } from "besdk";
+import { userClient, type Config } from "besdk";
 import { callUnary, loadVendorProto } from "./grpcProto.js";
 import { DEP_MDM_CUSTOMER } from "../dependencies.js";
 
@@ -87,9 +87,13 @@ function toDTO(raw: RawCustomer): CustomerDTO {
  * 的位置填 `undefined`（`BatchGetResponse` 只返回找到的 + missingIds，
  * 这里按 `ids` 原始顺序重新拼出 DataLoader 要的形状）。
  */
-export async function batchGetCustomers(auth: string, ids: readonly string[]): Promise<Array<CustomerDTO | undefined>> {
+export async function batchGetCustomers(
+  config: Config,
+  auth: string,
+  ids: readonly string[],
+): Promise<Array<CustomerDTO | undefined>> {
   if (ids.length === 0) return [];
-  const { target, credentials, options } = userClient(auth, DEP_MDM_CUSTOMER, "grpc");
+  const { target, credentials, options } = userClient(config, auth, DEP_MDM_CUSTOMER, "grpc");
   const client = new CustomerServiceCtor(target, credentials, options);
   try {
     const res = await callUnary<{ ids: readonly string[] }, BatchGetResponse>(

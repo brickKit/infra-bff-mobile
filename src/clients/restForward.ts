@@ -13,7 +13,7 @@
  * 因为都是"拼 URL"就合并成一个函数。
  */
 
-import { endpoint } from "besdk";
+import type { Config } from "besdk";
 import type { DependencyId } from "../dependencies.js";
 
 export class RestForwardError extends Error {
@@ -30,10 +30,10 @@ export class RestForwardError extends Error {
  * `/` 开头（如 `/tasks?cursor=...`）。404 时返回 `null`（调用方按
  * "查不到"处理，不当错误），其余非 2xx 抛 `RestForwardError`。
  */
-export async function forwardGet(dep: DependencyId, auth: string, path: string): Promise<unknown> {
-  const { value: host, ok } = endpoint(dep);
+export async function forwardGet(config: Config, dep: DependencyId, auth: string, path: string): Promise<unknown> {
+  const { value: host, ok } = config.endpoint(dep);
   if (!ok) {
-    throw new Error(`besdk.endpoint: 依赖 ${dep} 的地址未注入`);
+    throw new Error(`config.endpoint: 依赖 ${dep} 的地址未注入`);
   }
   const resp = await fetch(`http://${host}${path}`, {
     headers: auth ? { authorization: auth } : {},

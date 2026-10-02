@@ -44,6 +44,7 @@ export const inventoryResolvers = {
         warehouse_id: args.warehouseId,
       });
       const raw = (await forwardGet(
+        context.config,
         DEP_ERP_INVENTORY,
         context.auth,
         `/erp/inventory/balances?${params.toString()}`,

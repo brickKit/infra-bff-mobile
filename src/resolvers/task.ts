@@ -72,7 +72,7 @@ export const taskResolvers = {
       const query = params.toString();
       const path = `/infra/workflow/tasks${query ? `?${query}` : ""}`;
 
-      const res = (await forwardGet(DEP_INFRA_WORKFLOW, context.auth, path)) as TaskListResponse;
+      const res = (await forwardGet(context.config, DEP_INFRA_WORKFLOW, context.auth, path)) as TaskListResponse;
       return {
         tasks: res.tasks.map(toDTO),
         nextCursor: res.next_cursor,

@@ -7,7 +7,7 @@
  * 设计计划 §3.3 点名的"页面空白但不报错"。
  */
 
-import { endpoint } from "besdk";
+import type { Config } from "besdk";
 
 export const DEP_MDM_CUSTOMER = "mdm/customer";
 export const DEP_MDM_PRODUCT = "mdm/product";
@@ -37,10 +37,10 @@ export const FIELD_TO_DEPENDENCY: Record<string, DependencyId> = {
 };
 
 /** 读一遍全部弱依赖的 `*_ENDPOINT`，返回这个装配环境里真的装了哪些。 */
-export function resolveAvailableDependencies(): Set<DependencyId> {
+export function resolveAvailableDependencies(config: Config): Set<DependencyId> {
   const available = new Set<DependencyId>();
   for (const dep of ALL_DEPENDENCIES) {
-    if (endpoint(dep).ok) {
+    if (config.endpoint(dep).ok) {
       available.add(dep);
     }
   }
