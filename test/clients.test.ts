@@ -20,6 +20,12 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { Config } from "besdk";
+
+// 地址只从 Config 读：真机用例把本进程环境拍成一份 Config，同 runStandalone 的做法。
+const config = new Config(
+  Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => e[1] !== undefined)),
+);
 
 const CUSTOMER_ID = process.env.TEST_CUSTOMER_ID ?? "";
 const PRODUCT_ID = process.env.TEST_PRODUCT_ID ?? "";
@@ -33,7 +39,7 @@ describe.skipIf(!HAS_FIXTURES)("batchGetCustomers/batchGetProducts（真机）",
     // mdm-customer 的 id 是 bigint（BIGSERIAL），"missing" 也必须是数字
     // 形状——非数字字符串会在 SQL 层直接报 invalid input syntax，不是
     // 干净的"查不到"，这条真机测试跑出来才发现（不是看 schema 猜的）。
-    const result = await batchGetCustomers("", [CUSTOMER_ID, "999999999"]);
+    const result = await batchGetCustomers(config, "", [CUSTOMER_ID, "999999999"]);
 
     expect(result).toHaveLength(2);
     expect(result[0]?.id).toBe(CUSTOMER_ID);
@@ -43,7 +49,7 @@ describe.skipIf(!HAS_FIXTURES)("batchGetCustomers/batchGetProducts（真机）",
 
   it("真实调 mdm-product，拿到真实产品；枚举前缀已剥掉", async () => {
     const { batchGetProducts } = await import("../src/clients/product.js");
-    const result = await batchGetProducts("", [PRODUCT_ID]);
+    const result = await batchGetProducts(config, "", [PRODUCT_ID]);
 
     expect(result).toHaveLength(1);
     expect(result[0]?.id).toBe(PRODUCT_ID);
@@ -55,8 +61,8 @@ describe.skipIf(!HAS_FIXTURES)("batchGetCustomers/batchGetProducts（真机）",
 describe("batchGetCustomers/batchGetProducts（不需要真机）", () => {
   it("空 ids 短路，不发请求", async () => {
     const { batchGetCustomers } = await import("../src/clients/customer.js");
-    expect(await batchGetCustomers("", [])).toEqual([]);
+    expect(await batchGetCustomers(config, "", [])).toEqual([]);
     const { batchGetProducts } = await import("../src/clients/product.js");
-    expect(await batchGetProducts("", [])).toEqual([]);
+    expect(await batchGetProducts(config, "", [])).toEqual([]);
   });
 });
