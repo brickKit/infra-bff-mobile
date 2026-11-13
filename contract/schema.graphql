@@ -1,0 +1,220 @@
+# infra/bff-mobile: the mobile entry's page-shaped queries (docs/design.md). Read-only: no Mutation, no Subscription
+# (BM02); writes go from the front end straight to their owners through the edge.
+#
+# Every root field reads its owner's user surface with the caller's own credential (BM04); a component the
+# deployment does not have is not registered (BM07). A failed field is null with a GraphQL error whose extensions are
+# be-protocol P3.3's {reason, domain, metadata, trace_id} (and retry_after for a retryable one) (BM06).
+# Amounts and quantities are decimal strings (protocol 14), never floats. Lists are owner cursor pages: pass
+# nextCursor back as cursor; limit is 1..50 (BM03).
+
+scalar DateTime
+"A decimal as a string (e.g. 12.50): never a float."
+scalar Decimal
+"A JSON object of strings by language (BCP 47), as the owner gives it: the front end picks the language."
+scalar Translations
+"A JSON object of strings (a template's parameters)."
+scalar StringMap
+
+type Query {
+  # infra/workflow
+  "My pending tasks, newest first."
+  myTasks(taskType: String, cursor: String, limit: Int = 20): TaskPage!
+  "A task: a task is its component and its id."
+  task(component: String!, id: ID!): WorklistTask
+
+  # infra/notification
+  myNotifications(unread: Boolean, cursor: String, limit: Int = 20): NotificationPage!
+
+  # mdm/product (+ erp/inventory for a product's stock)
+  products(q: String, cursor: String, limit: Int = 20): ProductPage!
+  product(id: ID!): ProductDetail
+
+  # mdm/partner
+  "Partners with an active customer role (in a legal entity when given)."
+  customers(legalEntityId: ID, q: String, cursor: String, limit: Int = 20): PartnerPage!
+  customer(id: ID!): Partner
+
+  # erp/sales
+  "Sales orders I own."
+  myOrders(state: String, cursor: String, limit: Int = 20): OrderPage!
+  order(id: ID!): Order
+
+  # crm/opportunity
+  "Opportunities I own."
+  myOpportunities(stage: String, cursor: String, limit: Int = 20): OpportunityPage!
+  opportunity(id: ID!): Opportunity
+}
+
+# ---- tasks (infra/workflow; the task projection is be-protocol schemas/flow/task.v1) ----
+
+type TaskPage {
+  items: [WorklistTask!]!
+  nextCursor: String!
+}
+
+type WorklistTask {
+  id: ID!
+  "The component the task belongs to: the decision goes there."
+  component: String!
+  taskType: String!
+  state: String!
+  version: Int!
+  dueAt: DateTime
+  "The document's points, as its flow manager summarised them."
+  summary: TaskSummary!
+  "Where the front end sends a decision (POST, through the edge, with an Idempotency-Key): derived by the worklist."
+  action: TaskAction!
+  "No heartbeat from its flow manager for a while: it may not be current."
+  stale: Boolean!
+  receivedAt: DateTime!
+}
+
+type TaskSummary {
+  title: String!
+  fields: [SummaryField!]!
+}
+
+type SummaryField {
+  key: String!
+  label: String!
+  value: String!
+}
+
+type TaskAction {
+  component: String!
+  path: String!
+}
+
+# ---- notifications (infra/notification) ----
+
+type NotificationPage {
+  items: [Notification!]!
+  "My messages neither read nor withdrawn."
+  unread: Int!
+  nextCursor: String!
+}
+
+type Notification {
+  id: ID!
+  sender: String!
+  category: String!
+  title: String!
+  link: String!
+  template: String
+  params: StringMap
+  createdAt: DateTime!
+  readAt: DateTime
+  withdrawn: Boolean!
+}
+
+# ---- products (mdm/product) and their stock (erp/inventory) ----
+
+type ProductPage {
+  items: [Product!]!
+  nextCursor: String!
+}
+
+"A product in a list: no stock here (one call per product would fan out; BM05)."
+type Product {
+  id: ID!
+  code: String!
+  kind: String!
+  name: String!
+  names: Translations
+  baseUnit: String!
+  state: String!
+  "Fields the owner withheld from me (P8.31): null there means not visible, not empty."
+  masked: [String!]!
+}
+
+type ProductDetail {
+  id: ID!
+  code: String!
+  kind: String!
+  name: String!
+  names: Translations
+  baseUnit: String!
+  state: String!
+  masked: [String!]!
+  "On hand, reserved and available in each warehouse I may see (erp/inventory)."
+  stock: [StockPosition!]
+}
+
+type StockPosition {
+  warehouse: Warehouse!
+  onHand: Decimal!
+  reserved: Decimal!
+  available: Decimal!
+}
+
+type Warehouse {
+  id: ID!
+  code: String
+  "Null when the warehouse could not be named this time (BM05)."
+  name: String
+}
+
+# ---- partners (mdm/partner) ----
+
+type PartnerPage {
+  items: [Partner!]!
+  nextCursor: String!
+}
+
+type Partner {
+  id: ID!
+  kind: String!
+  name: String!
+  names: Translations
+  country: String
+  taxId: String
+  state: String!
+  masked: [String!]!
+}
+
+# ---- sales orders (erp/sales) ----
+
+type OrderPage {
+  items: [Order!]!
+  nextCursor: String!
+}
+
+type Order {
+  id: ID!
+  number: String
+  legalEntityId: ID!
+  customer: CustomerRef!
+  currency: String!
+  state: String!
+  businessDate: String
+  total: Decimal
+  updatedAt: DateTime!
+  masked: [String!]!
+}
+
+"A customer as the document recorded it."
+type CustomerRef {
+  partnerId: ID!
+  name: String!
+}
+
+# ---- opportunities (crm/opportunity) ----
+
+type OpportunityPage {
+  items: [Opportunity!]!
+  nextCursor: String!
+}
+
+type Opportunity {
+  id: ID!
+  number: String
+  name: String!
+  customer: CustomerRef!
+  currency: String!
+  amount: Decimal
+  stage: String!
+  probability: Int
+  expectedCloseDate: String
+  updatedAt: DateTime!
+  masked: [String!]!
+}

@@ -1,0 +1,91 @@
+openapi: 3.1.0
+info:
+  title: infra/bff-mobile user surface
+  version: 3.0.0
+  description: >-
+    The mobile entry's page-shaped queries (docs/design.md). One protected route under the public prefix
+    /api/bff-mobile (be-protocol P11.11): a persisted GraphQL query by its SHA-256 (BM02), read-only; the schema is
+    contract/schema.graphql. A field that fails is null with a GraphQL error whose extensions are be-protocol P3.3's
+    {reason, domain, metadata, trace_id}; only the entry's own refusals are HTTP problems.
+paths:
+  /api/bff-mobile/graphql:
+    post:
+      operationId: query
+      x-operation: infra.bff_mobile.entry.use
+      summary: Run a persisted query (BM01-BM03); through the edge's browser session, with BE-Request 1 (P11.2)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [extensions]
+              additionalProperties: false
+              properties:
+                operationName: {type: string}
+                variables: {type: object}
+                extensions:
+                  type: object
+                  required: [persistedQuery]
+                  properties:
+                    persistedQuery:
+                      type: object
+                      required: [version, sha256Hash]
+                      properties:
+                        version: {const: 1}
+                        sha256Hash: {type: string, pattern: '^[0-9a-f]{64}$'}
+      responses:
+        '200':
+          description: >-
+            the GraphQL answer: data, and errors for the fields that failed (path and extensions: reason, domain,
+            metadata with the missing dependency, trace_id, retry_after when retryable)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: [object, 'null']}
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required: [message]
+                      properties:
+                        message: {type: string}
+                        path: {type: array}
+                        extensions:
+                          type: object
+                          properties:
+                            reason: {type: string}
+                            domain: {type: string}
+                            metadata: {type: object}
+                            trace_id: {type: string}
+                            retry_after: {type: integer}
+        '400':
+          description: >-
+            REQUEST_INVALID (the body, a limit over 50, a query over the depth, cost or alias limits) or
+            PERSISTED_QUERY_NOT_FOUND (domain infra/bff-mobile: the hash is not in the deployment's list)
+          content:
+            application/problem+json:
+              schema: {$ref: '#/components/schemas/Problem'}
+        '403':
+          description: PERMISSION_DENIED (no infra.bff_mobile.entry.use)
+          content:
+            application/problem+json:
+              schema: {$ref: '#/components/schemas/Problem'}
+        default:
+          description: a problem
+          content:
+            application/problem+json:
+              schema: {$ref: '#/components/schemas/Problem'}
+components:
+  schemas:
+    Problem:
+      type: object
+      required: [reason]
+      properties:
+        reason: {type: string}
+        domain: {type: string}
+        detail: {type: string}
+        violations: {type: array}
+        trace_id: {type: string}
