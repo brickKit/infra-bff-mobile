@@ -1,0 +1,32 @@
+# gqlgen (A108): code generated from contract/schema.graphql (BM08: only the executor is used).
+schema:
+  - contract/schema.graphql
+exec:
+  filename: internal/graph/generated.go
+  package: graph
+model:
+  filename: internal/graph/models.go
+  package: graph
+resolver:
+  layout: follow-schema
+  dir: internal/graph
+  package: graph
+  filename_template: "{name}.resolvers.go"
+omit_slice_element_pointers: true
+models:
+  ID:
+    model: github.com/99designs/gqlgen/graphql.String
+  Int:
+    model: github.com/99designs/gqlgen/graphql.Int
+  DateTime:
+    model: github.com/99designs/gqlgen/graphql.String
+  Decimal:
+    model: github.com/99designs/gqlgen/graphql.String
+  Translations:
+    model: github.com/99designs/gqlgen/graphql.Map
+  StringMap:
+    model: github.com/99designs/gqlgen/graphql.Map
+  ProductDetail:
+    fields:
+      stock:
+        resolver: true # erp/inventory, only when the query asks for it (BM05)
