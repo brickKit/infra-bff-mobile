@@ -2,7 +2,8 @@
 # (BM02); writes go from the front end straight to their owners through the edge.
 #
 # Every root field reads its owner's user surface with the caller's own credential (BM04); a component the
-# deployment does not have is not registered (BM07). A failed field is null with a GraphQL error whose extensions are
+# deployment does not have is not registered (BM07). Root fields are nullable: one owner failing leaves only its
+# field null (BM06). A failed field is null with a GraphQL error whose extensions are
 # be-protocol P3.3's {reason, domain, metadata, trace_id} (and retry_after for a retryable one) (BM06).
 # Amounts and quantities are decimal strings (protocol 14), never floats. Lists are owner cursor pages: pass
 # nextCursor back as cursor; limit is 1..50 (BM03).
@@ -17,31 +18,31 @@ scalar StringMap
 
 type Query {
   # infra/workflow
-  "My pending tasks, newest first."
-  myTasks(taskType: String, cursor: String, limit: Int = 20): TaskPage!
+  "My pending tasks, in the worklist's order (the earliest due first, then the oldest)."
+  myTasks(taskType: String, cursor: String, limit: Int = 20): TaskPage
   "A task: a task is its component and its id."
   task(component: String!, id: ID!): WorklistTask
 
   # infra/notification
-  myNotifications(unread: Boolean, cursor: String, limit: Int = 20): NotificationPage!
+  myNotifications(unread: Boolean, cursor: String, limit: Int = 20): NotificationPage
 
   # mdm/product (+ erp/inventory for a product's stock)
-  products(q: String, cursor: String, limit: Int = 20): ProductPage!
+  products(q: String, cursor: String, limit: Int = 20): ProductPage
   product(id: ID!): ProductDetail
 
   # mdm/partner
   "Partners with an active customer role (in a legal entity when given)."
-  customers(legalEntityId: ID, q: String, cursor: String, limit: Int = 20): PartnerPage!
+  customers(legalEntityId: ID, q: String, cursor: String, limit: Int = 20): PartnerPage
   customer(id: ID!): Partner
 
   # erp/sales
   "Sales orders I own."
-  myOrders(state: String, cursor: String, limit: Int = 20): OrderPage!
+  myOrders(state: String, cursor: String, limit: Int = 20): OrderPage
   order(id: ID!): Order
 
   # crm/opportunity
   "Opportunities I own."
-  myOpportunities(stage: String, cursor: String, limit: Int = 20): OpportunityPage!
+  myOpportunities(stage: String, cursor: String, limit: Int = 20): OpportunityPage
   opportunity(id: ID!): Opportunity
 }
 

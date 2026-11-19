@@ -8,65 +8,67 @@ package graph
 import (
 	"context"
 	"fmt"
+
+	"github.com/brickKit/infra-bff-mobile/v3/internal/model"
 )
 
 // Stock is the resolver for the stock field.
-func (r *productDetailResolver) Stock(ctx context.Context, obj *ProductDetail) ([]StockPosition, error) {
+func (r *productDetailResolver) Stock(ctx context.Context, obj *model.ProductDetail) ([]model.StockPosition, error) {
 	panic(fmt.Errorf("not implemented: Stock - stock"))
 }
 
 // MyTasks is the resolver for the myTasks field.
-func (r *queryResolver) MyTasks(ctx context.Context, taskType *string, cursor *string, limit *int) (*TaskPage, error) {
+func (r *queryResolver) MyTasks(ctx context.Context, taskType *string, cursor *string, limit *int) (*model.TaskPage, error) {
 	panic(fmt.Errorf("not implemented: MyTasks - myTasks"))
 }
 
 // Task is the resolver for the task field.
-func (r *queryResolver) Task(ctx context.Context, component string, id string) (*WorklistTask, error) {
+func (r *queryResolver) Task(ctx context.Context, component string, id string) (*model.WorklistTask, error) {
 	panic(fmt.Errorf("not implemented: Task - task"))
 }
 
 // MyNotifications is the resolver for the myNotifications field.
-func (r *queryResolver) MyNotifications(ctx context.Context, unread *bool, cursor *string, limit *int) (*NotificationPage, error) {
+func (r *queryResolver) MyNotifications(ctx context.Context, unread *bool, cursor *string, limit *int) (*model.NotificationPage, error) {
 	panic(fmt.Errorf("not implemented: MyNotifications - myNotifications"))
 }
 
 // Products is the resolver for the products field.
-func (r *queryResolver) Products(ctx context.Context, q *string, cursor *string, limit *int) (*ProductPage, error) {
+func (r *queryResolver) Products(ctx context.Context, q *string, cursor *string, limit *int) (*model.ProductPage, error) {
 	panic(fmt.Errorf("not implemented: Products - products"))
 }
 
 // Product is the resolver for the product field.
-func (r *queryResolver) Product(ctx context.Context, id string) (*ProductDetail, error) {
+func (r *queryResolver) Product(ctx context.Context, id string) (*model.ProductDetail, error) {
 	panic(fmt.Errorf("not implemented: Product - product"))
 }
 
 // Customers is the resolver for the customers field.
-func (r *queryResolver) Customers(ctx context.Context, legalEntityID *string, q *string, cursor *string, limit *int) (*PartnerPage, error) {
+func (r *queryResolver) Customers(ctx context.Context, legalEntityID *string, q *string, cursor *string, limit *int) (*model.PartnerPage, error) {
 	panic(fmt.Errorf("not implemented: Customers - customers"))
 }
 
 // Customer is the resolver for the customer field.
-func (r *queryResolver) Customer(ctx context.Context, id string) (*Partner, error) {
+func (r *queryResolver) Customer(ctx context.Context, id string) (*model.Partner, error) {
 	panic(fmt.Errorf("not implemented: Customer - customer"))
 }
 
 // MyOrders is the resolver for the myOrders field.
-func (r *queryResolver) MyOrders(ctx context.Context, state *string, cursor *string, limit *int) (*OrderPage, error) {
+func (r *queryResolver) MyOrders(ctx context.Context, state *string, cursor *string, limit *int) (*model.OrderPage, error) {
 	panic(fmt.Errorf("not implemented: MyOrders - myOrders"))
 }
 
 // Order is the resolver for the order field.
-func (r *queryResolver) Order(ctx context.Context, id string) (*Order, error) {
+func (r *queryResolver) Order(ctx context.Context, id string) (*model.Order, error) {
 	panic(fmt.Errorf("not implemented: Order - order"))
 }
 
 // MyOpportunities is the resolver for the myOpportunities field.
-func (r *queryResolver) MyOpportunities(ctx context.Context, stage *string, cursor *string, limit *int) (*OpportunityPage, error) {
+func (r *queryResolver) MyOpportunities(ctx context.Context, stage *string, cursor *string, limit *int) (*model.OpportunityPage, error) {
 	panic(fmt.Errorf("not implemented: MyOpportunities - myOpportunities"))
 }
 
 // Opportunity is the resolver for the opportunity field.
-func (r *queryResolver) Opportunity(ctx context.Context, id string) (*Opportunity, error) {
+func (r *queryResolver) Opportunity(ctx context.Context, id string) (*model.Opportunity, error) {
 	panic(fmt.Errorf("not implemented: Opportunity - opportunity"))
 }
 

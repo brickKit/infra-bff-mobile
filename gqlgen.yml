@@ -5,8 +5,8 @@ exec:
   filename: internal/graph/generated.go
   package: graph
 model:
-  filename: internal/graph/models.go
-  package: graph
+  filename: internal/model/models.go
+  package: model
 resolver:
   layout: follow-schema
   dir: internal/graph

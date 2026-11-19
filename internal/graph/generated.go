@@ -12,6 +12,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
+	"github.com/brickKit/infra-bff-mobile/v3/internal/model"
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 )
@@ -206,20 +207,20 @@ type ComplexityRoot struct {
 // region    ************************** generated!.gotpl **************************
 
 type ProductDetailResolver interface {
-	Stock(ctx context.Context, obj *ProductDetail) ([]StockPosition, error)
+	Stock(ctx context.Context, obj *model.ProductDetail) ([]model.StockPosition, error)
 }
 type QueryResolver interface {
-	MyTasks(ctx context.Context, taskType *string, cursor *string, limit *int) (*TaskPage, error)
-	Task(ctx context.Context, component string, id string) (*WorklistTask, error)
-	MyNotifications(ctx context.Context, unread *bool, cursor *string, limit *int) (*NotificationPage, error)
-	Products(ctx context.Context, q *string, cursor *string, limit *int) (*ProductPage, error)
-	Product(ctx context.Context, id string) (*ProductDetail, error)
-	Customers(ctx context.Context, legalEntityID *string, q *string, cursor *string, limit *int) (*PartnerPage, error)
-	Customer(ctx context.Context, id string) (*Partner, error)
-	MyOrders(ctx context.Context, state *string, cursor *string, limit *int) (*OrderPage, error)
-	Order(ctx context.Context, id string) (*Order, error)
-	MyOpportunities(ctx context.Context, stage *string, cursor *string, limit *int) (*OpportunityPage, error)
-	Opportunity(ctx context.Context, id string) (*Opportunity, error)
+	MyTasks(ctx context.Context, taskType *string, cursor *string, limit *int) (*model.TaskPage, error)
+	Task(ctx context.Context, component string, id string) (*model.WorklistTask, error)
+	MyNotifications(ctx context.Context, unread *bool, cursor *string, limit *int) (*model.NotificationPage, error)
+	Products(ctx context.Context, q *string, cursor *string, limit *int) (*model.ProductPage, error)
+	Product(ctx context.Context, id string) (*model.ProductDetail, error)
+	Customers(ctx context.Context, legalEntityID *string, q *string, cursor *string, limit *int) (*model.PartnerPage, error)
+	Customer(ctx context.Context, id string) (*model.Partner, error)
+	MyOrders(ctx context.Context, state *string, cursor *string, limit *int) (*model.OrderPage, error)
+	Order(ctx context.Context, id string) (*model.Order, error)
+	MyOpportunities(ctx context.Context, stage *string, cursor *string, limit *int) (*model.OpportunityPage, error)
+	Opportunity(ctx context.Context, id string) (*model.Opportunity, error)
 }
 
 // endregion ************************** generated!.gotpl **************************
@@ -1025,7 +1026,8 @@ var sources = []*ast.Source{
 # (BM02); writes go from the front end straight to their owners through the edge.
 #
 # Every root field reads its owner's user surface with the caller's own credential (BM04); a component the
-# deployment does not have is not registered (BM07). A failed field is null with a GraphQL error whose extensions are
+# deployment does not have is not registered (BM07). Root fields are nullable: one owner failing leaves only its
+# field null (BM06). A failed field is null with a GraphQL error whose extensions are
 # be-protocol P3.3's {reason, domain, metadata, trace_id} (and retry_after for a retryable one) (BM06).
 # Amounts and quantities are decimal strings (protocol 14), never floats. Lists are owner cursor pages: pass
 # nextCursor back as cursor; limit is 1..50 (BM03).
@@ -1040,31 +1042,31 @@ scalar StringMap
 
 type Query {
   # infra/workflow
-  "My pending tasks, newest first."
-  myTasks(taskType: String, cursor: String, limit: Int = 20): TaskPage!
+  "My pending tasks, in the worklist's order (the earliest due first, then the oldest)."
+  myTasks(taskType: String, cursor: String, limit: Int = 20): TaskPage
   "A task: a task is its component and its id."
   task(component: String!, id: ID!): WorklistTask
 
   # infra/notification
-  myNotifications(unread: Boolean, cursor: String, limit: Int = 20): NotificationPage!
+  myNotifications(unread: Boolean, cursor: String, limit: Int = 20): NotificationPage
 
   # mdm/product (+ erp/inventory for a product's stock)
-  products(q: String, cursor: String, limit: Int = 20): ProductPage!
+  products(q: String, cursor: String, limit: Int = 20): ProductPage
   product(id: ID!): ProductDetail
 
   # mdm/partner
   "Partners with an active customer role (in a legal entity when given)."
-  customers(legalEntityId: ID, q: String, cursor: String, limit: Int = 20): PartnerPage!
+  customers(legalEntityId: ID, q: String, cursor: String, limit: Int = 20): PartnerPage
   customer(id: ID!): Partner
 
   # erp/sales
   "Sales orders I own."
-  myOrders(state: String, cursor: String, limit: Int = 20): OrderPage!
+  myOrders(state: String, cursor: String, limit: Int = 20): OrderPage
   order(id: ID!): Order
 
   # crm/opportunity
   "Opportunities I own."
-  myOpportunities(stage: String, cursor: String, limit: Int = 20): OpportunityPage!
+  myOpportunities(stage: String, cursor: String, limit: Int = 20): OpportunityPage
   opportunity(id: ID!): Opportunity
 }
 
@@ -2023,7 +2025,7 @@ func (ec *executionContext) field___Type_inputFields_args(ctx context.Context, r
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _CustomerRef_partnerId(ctx context.Context, field graphql.CollectedField, obj *CustomerRef) (ret graphql.Marshaler) {
+func (ec *executionContext) _CustomerRef_partnerId(ctx context.Context, field graphql.CollectedField, obj *model.CustomerRef) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2046,7 +2048,7 @@ func (ec *executionContext) fieldContext_CustomerRef_partnerId(_ context.Context
 	return graphql.NewScalarFieldContext("CustomerRef", field, false, false, "ID")
 }
 
-func (ec *executionContext) _CustomerRef_name(ctx context.Context, field graphql.CollectedField, obj *CustomerRef) (ret graphql.Marshaler) {
+func (ec *executionContext) _CustomerRef_name(ctx context.Context, field graphql.CollectedField, obj *model.CustomerRef) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2069,7 +2071,7 @@ func (ec *executionContext) fieldContext_CustomerRef_name(_ context.Context, fie
 	return graphql.NewScalarFieldContext("CustomerRef", field, false, false, "String")
 }
 
-func (ec *executionContext) _Notification_id(ctx context.Context, field graphql.CollectedField, obj *Notification) (ret graphql.Marshaler) {
+func (ec *executionContext) _Notification_id(ctx context.Context, field graphql.CollectedField, obj *model.Notification) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2092,7 +2094,7 @@ func (ec *executionContext) fieldContext_Notification_id(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("Notification", field, false, false, "ID")
 }
 
-func (ec *executionContext) _Notification_sender(ctx context.Context, field graphql.CollectedField, obj *Notification) (ret graphql.Marshaler) {
+func (ec *executionContext) _Notification_sender(ctx context.Context, field graphql.CollectedField, obj *model.Notification) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2115,7 +2117,7 @@ func (ec *executionContext) fieldContext_Notification_sender(_ context.Context, 
 	return graphql.NewScalarFieldContext("Notification", field, false, false, "String")
 }
 
-func (ec *executionContext) _Notification_category(ctx context.Context, field graphql.CollectedField, obj *Notification) (ret graphql.Marshaler) {
+func (ec *executionContext) _Notification_category(ctx context.Context, field graphql.CollectedField, obj *model.Notification) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2138,7 +2140,7 @@ func (ec *executionContext) fieldContext_Notification_category(_ context.Context
 	return graphql.NewScalarFieldContext("Notification", field, false, false, "String")
 }
 
-func (ec *executionContext) _Notification_title(ctx context.Context, field graphql.CollectedField, obj *Notification) (ret graphql.Marshaler) {
+func (ec *executionContext) _Notification_title(ctx context.Context, field graphql.CollectedField, obj *model.Notification) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2161,7 +2163,7 @@ func (ec *executionContext) fieldContext_Notification_title(_ context.Context, f
 	return graphql.NewScalarFieldContext("Notification", field, false, false, "String")
 }
 
-func (ec *executionContext) _Notification_link(ctx context.Context, field graphql.CollectedField, obj *Notification) (ret graphql.Marshaler) {
+func (ec *executionContext) _Notification_link(ctx context.Context, field graphql.CollectedField, obj *model.Notification) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2184,7 +2186,7 @@ func (ec *executionContext) fieldContext_Notification_link(_ context.Context, fi
 	return graphql.NewScalarFieldContext("Notification", field, false, false, "String")
 }
 
-func (ec *executionContext) _Notification_template(ctx context.Context, field graphql.CollectedField, obj *Notification) (ret graphql.Marshaler) {
+func (ec *executionContext) _Notification_template(ctx context.Context, field graphql.CollectedField, obj *model.Notification) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2207,7 +2209,7 @@ func (ec *executionContext) fieldContext_Notification_template(_ context.Context
 	return graphql.NewScalarFieldContext("Notification", field, false, false, "String")
 }
 
-func (ec *executionContext) _Notification_params(ctx context.Context, field graphql.CollectedField, obj *Notification) (ret graphql.Marshaler) {
+func (ec *executionContext) _Notification_params(ctx context.Context, field graphql.CollectedField, obj *model.Notification) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2230,7 +2232,7 @@ func (ec *executionContext) fieldContext_Notification_params(_ context.Context, 
 	return graphql.NewScalarFieldContext("Notification", field, false, false, "StringMap")
 }
 
-func (ec *executionContext) _Notification_createdAt(ctx context.Context, field graphql.CollectedField, obj *Notification) (ret graphql.Marshaler) {
+func (ec *executionContext) _Notification_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.Notification) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2253,7 +2255,7 @@ func (ec *executionContext) fieldContext_Notification_createdAt(_ context.Contex
 	return graphql.NewScalarFieldContext("Notification", field, false, false, "DateTime")
 }
 
-func (ec *executionContext) _Notification_readAt(ctx context.Context, field graphql.CollectedField, obj *Notification) (ret graphql.Marshaler) {
+func (ec *executionContext) _Notification_readAt(ctx context.Context, field graphql.CollectedField, obj *model.Notification) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2276,7 +2278,7 @@ func (ec *executionContext) fieldContext_Notification_readAt(_ context.Context, 
 	return graphql.NewScalarFieldContext("Notification", field, false, false, "DateTime")
 }
 
-func (ec *executionContext) _Notification_withdrawn(ctx context.Context, field graphql.CollectedField, obj *Notification) (ret graphql.Marshaler) {
+func (ec *executionContext) _Notification_withdrawn(ctx context.Context, field graphql.CollectedField, obj *model.Notification) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2299,7 +2301,7 @@ func (ec *executionContext) fieldContext_Notification_withdrawn(_ context.Contex
 	return graphql.NewScalarFieldContext("Notification", field, false, false, "Boolean")
 }
 
-func (ec *executionContext) _NotificationPage_items(ctx context.Context, field graphql.CollectedField, obj *NotificationPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _NotificationPage_items(ctx context.Context, field graphql.CollectedField, obj *model.NotificationPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2311,8 +2313,8 @@ func (ec *executionContext) _NotificationPage_items(ctx context.Context, field g
 			return obj.Items, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []Notification) graphql.Marshaler {
-			return ec.marshalNNotification2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐNotificationᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.Notification) graphql.Marshaler {
+			return ec.marshalNNotification2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐNotificationᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -2331,7 +2333,7 @@ func (ec *executionContext) fieldContext_NotificationPage_items(_ context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _NotificationPage_unread(ctx context.Context, field graphql.CollectedField, obj *NotificationPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _NotificationPage_unread(ctx context.Context, field graphql.CollectedField, obj *model.NotificationPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2354,7 +2356,7 @@ func (ec *executionContext) fieldContext_NotificationPage_unread(_ context.Conte
 	return graphql.NewScalarFieldContext("NotificationPage", field, false, false, "Int")
 }
 
-func (ec *executionContext) _NotificationPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *NotificationPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _NotificationPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *model.NotificationPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2377,7 +2379,7 @@ func (ec *executionContext) fieldContext_NotificationPage_nextCursor(_ context.C
 	return graphql.NewScalarFieldContext("NotificationPage", field, false, false, "String")
 }
 
-func (ec *executionContext) _Opportunity_id(ctx context.Context, field graphql.CollectedField, obj *Opportunity) (ret graphql.Marshaler) {
+func (ec *executionContext) _Opportunity_id(ctx context.Context, field graphql.CollectedField, obj *model.Opportunity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2400,7 +2402,7 @@ func (ec *executionContext) fieldContext_Opportunity_id(_ context.Context, field
 	return graphql.NewScalarFieldContext("Opportunity", field, false, false, "ID")
 }
 
-func (ec *executionContext) _Opportunity_number(ctx context.Context, field graphql.CollectedField, obj *Opportunity) (ret graphql.Marshaler) {
+func (ec *executionContext) _Opportunity_number(ctx context.Context, field graphql.CollectedField, obj *model.Opportunity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2423,7 +2425,7 @@ func (ec *executionContext) fieldContext_Opportunity_number(_ context.Context, f
 	return graphql.NewScalarFieldContext("Opportunity", field, false, false, "String")
 }
 
-func (ec *executionContext) _Opportunity_name(ctx context.Context, field graphql.CollectedField, obj *Opportunity) (ret graphql.Marshaler) {
+func (ec *executionContext) _Opportunity_name(ctx context.Context, field graphql.CollectedField, obj *model.Opportunity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2446,7 +2448,7 @@ func (ec *executionContext) fieldContext_Opportunity_name(_ context.Context, fie
 	return graphql.NewScalarFieldContext("Opportunity", field, false, false, "String")
 }
 
-func (ec *executionContext) _Opportunity_customer(ctx context.Context, field graphql.CollectedField, obj *Opportunity) (ret graphql.Marshaler) {
+func (ec *executionContext) _Opportunity_customer(ctx context.Context, field graphql.CollectedField, obj *model.Opportunity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2458,8 +2460,8 @@ func (ec *executionContext) _Opportunity_customer(ctx context.Context, field gra
 			return obj.Customer, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *CustomerRef) graphql.Marshaler {
-			return ec.marshalNCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐCustomerRef(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.CustomerRef) graphql.Marshaler {
+			return ec.marshalNCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐCustomerRef(ctx, selections, v)
 		},
 		true,
 		true,
@@ -2478,7 +2480,7 @@ func (ec *executionContext) fieldContext_Opportunity_customer(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _Opportunity_currency(ctx context.Context, field graphql.CollectedField, obj *Opportunity) (ret graphql.Marshaler) {
+func (ec *executionContext) _Opportunity_currency(ctx context.Context, field graphql.CollectedField, obj *model.Opportunity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2501,7 +2503,7 @@ func (ec *executionContext) fieldContext_Opportunity_currency(_ context.Context,
 	return graphql.NewScalarFieldContext("Opportunity", field, false, false, "String")
 }
 
-func (ec *executionContext) _Opportunity_amount(ctx context.Context, field graphql.CollectedField, obj *Opportunity) (ret graphql.Marshaler) {
+func (ec *executionContext) _Opportunity_amount(ctx context.Context, field graphql.CollectedField, obj *model.Opportunity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2524,7 +2526,7 @@ func (ec *executionContext) fieldContext_Opportunity_amount(_ context.Context, f
 	return graphql.NewScalarFieldContext("Opportunity", field, false, false, "Decimal")
 }
 
-func (ec *executionContext) _Opportunity_stage(ctx context.Context, field graphql.CollectedField, obj *Opportunity) (ret graphql.Marshaler) {
+func (ec *executionContext) _Opportunity_stage(ctx context.Context, field graphql.CollectedField, obj *model.Opportunity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2547,7 +2549,7 @@ func (ec *executionContext) fieldContext_Opportunity_stage(_ context.Context, fi
 	return graphql.NewScalarFieldContext("Opportunity", field, false, false, "String")
 }
 
-func (ec *executionContext) _Opportunity_probability(ctx context.Context, field graphql.CollectedField, obj *Opportunity) (ret graphql.Marshaler) {
+func (ec *executionContext) _Opportunity_probability(ctx context.Context, field graphql.CollectedField, obj *model.Opportunity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2570,7 +2572,7 @@ func (ec *executionContext) fieldContext_Opportunity_probability(_ context.Conte
 	return graphql.NewScalarFieldContext("Opportunity", field, false, false, "Int")
 }
 
-func (ec *executionContext) _Opportunity_expectedCloseDate(ctx context.Context, field graphql.CollectedField, obj *Opportunity) (ret graphql.Marshaler) {
+func (ec *executionContext) _Opportunity_expectedCloseDate(ctx context.Context, field graphql.CollectedField, obj *model.Opportunity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2593,7 +2595,7 @@ func (ec *executionContext) fieldContext_Opportunity_expectedCloseDate(_ context
 	return graphql.NewScalarFieldContext("Opportunity", field, false, false, "String")
 }
 
-func (ec *executionContext) _Opportunity_updatedAt(ctx context.Context, field graphql.CollectedField, obj *Opportunity) (ret graphql.Marshaler) {
+func (ec *executionContext) _Opportunity_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.Opportunity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2616,7 +2618,7 @@ func (ec *executionContext) fieldContext_Opportunity_updatedAt(_ context.Context
 	return graphql.NewScalarFieldContext("Opportunity", field, false, false, "DateTime")
 }
 
-func (ec *executionContext) _Opportunity_masked(ctx context.Context, field graphql.CollectedField, obj *Opportunity) (ret graphql.Marshaler) {
+func (ec *executionContext) _Opportunity_masked(ctx context.Context, field graphql.CollectedField, obj *model.Opportunity) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2639,7 +2641,7 @@ func (ec *executionContext) fieldContext_Opportunity_masked(_ context.Context, f
 	return graphql.NewScalarFieldContext("Opportunity", field, false, false, "String")
 }
 
-func (ec *executionContext) _OpportunityPage_items(ctx context.Context, field graphql.CollectedField, obj *OpportunityPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _OpportunityPage_items(ctx context.Context, field graphql.CollectedField, obj *model.OpportunityPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2651,8 +2653,8 @@ func (ec *executionContext) _OpportunityPage_items(ctx context.Context, field gr
 			return obj.Items, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []Opportunity) graphql.Marshaler {
-			return ec.marshalNOpportunity2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOpportunityᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.Opportunity) graphql.Marshaler {
+			return ec.marshalNOpportunity2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOpportunityᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -2671,7 +2673,7 @@ func (ec *executionContext) fieldContext_OpportunityPage_items(_ context.Context
 	return fc, nil
 }
 
-func (ec *executionContext) _OpportunityPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *OpportunityPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _OpportunityPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *model.OpportunityPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2694,7 +2696,7 @@ func (ec *executionContext) fieldContext_OpportunityPage_nextCursor(_ context.Co
 	return graphql.NewScalarFieldContext("OpportunityPage", field, false, false, "String")
 }
 
-func (ec *executionContext) _Order_id(ctx context.Context, field graphql.CollectedField, obj *Order) (ret graphql.Marshaler) {
+func (ec *executionContext) _Order_id(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2717,7 +2719,7 @@ func (ec *executionContext) fieldContext_Order_id(_ context.Context, field graph
 	return graphql.NewScalarFieldContext("Order", field, false, false, "ID")
 }
 
-func (ec *executionContext) _Order_number(ctx context.Context, field graphql.CollectedField, obj *Order) (ret graphql.Marshaler) {
+func (ec *executionContext) _Order_number(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2740,7 +2742,7 @@ func (ec *executionContext) fieldContext_Order_number(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Order", field, false, false, "String")
 }
 
-func (ec *executionContext) _Order_legalEntityId(ctx context.Context, field graphql.CollectedField, obj *Order) (ret graphql.Marshaler) {
+func (ec *executionContext) _Order_legalEntityId(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2763,7 +2765,7 @@ func (ec *executionContext) fieldContext_Order_legalEntityId(_ context.Context, 
 	return graphql.NewScalarFieldContext("Order", field, false, false, "ID")
 }
 
-func (ec *executionContext) _Order_customer(ctx context.Context, field graphql.CollectedField, obj *Order) (ret graphql.Marshaler) {
+func (ec *executionContext) _Order_customer(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2775,8 +2777,8 @@ func (ec *executionContext) _Order_customer(ctx context.Context, field graphql.C
 			return obj.Customer, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *CustomerRef) graphql.Marshaler {
-			return ec.marshalNCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐCustomerRef(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.CustomerRef) graphql.Marshaler {
+			return ec.marshalNCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐCustomerRef(ctx, selections, v)
 		},
 		true,
 		true,
@@ -2795,7 +2797,7 @@ func (ec *executionContext) fieldContext_Order_customer(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _Order_currency(ctx context.Context, field graphql.CollectedField, obj *Order) (ret graphql.Marshaler) {
+func (ec *executionContext) _Order_currency(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2818,7 +2820,7 @@ func (ec *executionContext) fieldContext_Order_currency(_ context.Context, field
 	return graphql.NewScalarFieldContext("Order", field, false, false, "String")
 }
 
-func (ec *executionContext) _Order_state(ctx context.Context, field graphql.CollectedField, obj *Order) (ret graphql.Marshaler) {
+func (ec *executionContext) _Order_state(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2841,7 +2843,7 @@ func (ec *executionContext) fieldContext_Order_state(_ context.Context, field gr
 	return graphql.NewScalarFieldContext("Order", field, false, false, "String")
 }
 
-func (ec *executionContext) _Order_businessDate(ctx context.Context, field graphql.CollectedField, obj *Order) (ret graphql.Marshaler) {
+func (ec *executionContext) _Order_businessDate(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2864,7 +2866,7 @@ func (ec *executionContext) fieldContext_Order_businessDate(_ context.Context, f
 	return graphql.NewScalarFieldContext("Order", field, false, false, "String")
 }
 
-func (ec *executionContext) _Order_total(ctx context.Context, field graphql.CollectedField, obj *Order) (ret graphql.Marshaler) {
+func (ec *executionContext) _Order_total(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2887,7 +2889,7 @@ func (ec *executionContext) fieldContext_Order_total(_ context.Context, field gr
 	return graphql.NewScalarFieldContext("Order", field, false, false, "Decimal")
 }
 
-func (ec *executionContext) _Order_updatedAt(ctx context.Context, field graphql.CollectedField, obj *Order) (ret graphql.Marshaler) {
+func (ec *executionContext) _Order_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2910,7 +2912,7 @@ func (ec *executionContext) fieldContext_Order_updatedAt(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("Order", field, false, false, "DateTime")
 }
 
-func (ec *executionContext) _Order_masked(ctx context.Context, field graphql.CollectedField, obj *Order) (ret graphql.Marshaler) {
+func (ec *executionContext) _Order_masked(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2933,7 +2935,7 @@ func (ec *executionContext) fieldContext_Order_masked(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Order", field, false, false, "String")
 }
 
-func (ec *executionContext) _OrderPage_items(ctx context.Context, field graphql.CollectedField, obj *OrderPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrderPage_items(ctx context.Context, field graphql.CollectedField, obj *model.OrderPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2945,8 +2947,8 @@ func (ec *executionContext) _OrderPage_items(ctx context.Context, field graphql.
 			return obj.Items, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []Order) graphql.Marshaler {
-			return ec.marshalNOrder2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOrderᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.Order) graphql.Marshaler {
+			return ec.marshalNOrder2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOrderᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -2965,7 +2967,7 @@ func (ec *executionContext) fieldContext_OrderPage_items(_ context.Context, fiel
 	return fc, nil
 }
 
-func (ec *executionContext) _OrderPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *OrderPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _OrderPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *model.OrderPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -2988,7 +2990,7 @@ func (ec *executionContext) fieldContext_OrderPage_nextCursor(_ context.Context,
 	return graphql.NewScalarFieldContext("OrderPage", field, false, false, "String")
 }
 
-func (ec *executionContext) _Partner_id(ctx context.Context, field graphql.CollectedField, obj *Partner) (ret graphql.Marshaler) {
+func (ec *executionContext) _Partner_id(ctx context.Context, field graphql.CollectedField, obj *model.Partner) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3011,7 +3013,7 @@ func (ec *executionContext) fieldContext_Partner_id(_ context.Context, field gra
 	return graphql.NewScalarFieldContext("Partner", field, false, false, "ID")
 }
 
-func (ec *executionContext) _Partner_kind(ctx context.Context, field graphql.CollectedField, obj *Partner) (ret graphql.Marshaler) {
+func (ec *executionContext) _Partner_kind(ctx context.Context, field graphql.CollectedField, obj *model.Partner) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3034,7 +3036,7 @@ func (ec *executionContext) fieldContext_Partner_kind(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Partner", field, false, false, "String")
 }
 
-func (ec *executionContext) _Partner_name(ctx context.Context, field graphql.CollectedField, obj *Partner) (ret graphql.Marshaler) {
+func (ec *executionContext) _Partner_name(ctx context.Context, field graphql.CollectedField, obj *model.Partner) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3057,7 +3059,7 @@ func (ec *executionContext) fieldContext_Partner_name(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Partner", field, false, false, "String")
 }
 
-func (ec *executionContext) _Partner_names(ctx context.Context, field graphql.CollectedField, obj *Partner) (ret graphql.Marshaler) {
+func (ec *executionContext) _Partner_names(ctx context.Context, field graphql.CollectedField, obj *model.Partner) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3080,7 +3082,7 @@ func (ec *executionContext) fieldContext_Partner_names(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Partner", field, false, false, "Translations")
 }
 
-func (ec *executionContext) _Partner_country(ctx context.Context, field graphql.CollectedField, obj *Partner) (ret graphql.Marshaler) {
+func (ec *executionContext) _Partner_country(ctx context.Context, field graphql.CollectedField, obj *model.Partner) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3103,7 +3105,7 @@ func (ec *executionContext) fieldContext_Partner_country(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("Partner", field, false, false, "String")
 }
 
-func (ec *executionContext) _Partner_taxId(ctx context.Context, field graphql.CollectedField, obj *Partner) (ret graphql.Marshaler) {
+func (ec *executionContext) _Partner_taxId(ctx context.Context, field graphql.CollectedField, obj *model.Partner) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3126,7 +3128,7 @@ func (ec *executionContext) fieldContext_Partner_taxId(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Partner", field, false, false, "String")
 }
 
-func (ec *executionContext) _Partner_state(ctx context.Context, field graphql.CollectedField, obj *Partner) (ret graphql.Marshaler) {
+func (ec *executionContext) _Partner_state(ctx context.Context, field graphql.CollectedField, obj *model.Partner) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3149,7 +3151,7 @@ func (ec *executionContext) fieldContext_Partner_state(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Partner", field, false, false, "String")
 }
 
-func (ec *executionContext) _Partner_masked(ctx context.Context, field graphql.CollectedField, obj *Partner) (ret graphql.Marshaler) {
+func (ec *executionContext) _Partner_masked(ctx context.Context, field graphql.CollectedField, obj *model.Partner) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3172,7 +3174,7 @@ func (ec *executionContext) fieldContext_Partner_masked(_ context.Context, field
 	return graphql.NewScalarFieldContext("Partner", field, false, false, "String")
 }
 
-func (ec *executionContext) _PartnerPage_items(ctx context.Context, field graphql.CollectedField, obj *PartnerPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _PartnerPage_items(ctx context.Context, field graphql.CollectedField, obj *model.PartnerPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3184,8 +3186,8 @@ func (ec *executionContext) _PartnerPage_items(ctx context.Context, field graphq
 			return obj.Items, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []Partner) graphql.Marshaler {
-			return ec.marshalNPartner2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐPartnerᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.Partner) graphql.Marshaler {
+			return ec.marshalNPartner2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐPartnerᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -3204,7 +3206,7 @@ func (ec *executionContext) fieldContext_PartnerPage_items(_ context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _PartnerPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *PartnerPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _PartnerPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *model.PartnerPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3227,7 +3229,7 @@ func (ec *executionContext) fieldContext_PartnerPage_nextCursor(_ context.Contex
 	return graphql.NewScalarFieldContext("PartnerPage", field, false, false, "String")
 }
 
-func (ec *executionContext) _Product_id(ctx context.Context, field graphql.CollectedField, obj *Product) (ret graphql.Marshaler) {
+func (ec *executionContext) _Product_id(ctx context.Context, field graphql.CollectedField, obj *model.Product) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3250,7 +3252,7 @@ func (ec *executionContext) fieldContext_Product_id(_ context.Context, field gra
 	return graphql.NewScalarFieldContext("Product", field, false, false, "ID")
 }
 
-func (ec *executionContext) _Product_code(ctx context.Context, field graphql.CollectedField, obj *Product) (ret graphql.Marshaler) {
+func (ec *executionContext) _Product_code(ctx context.Context, field graphql.CollectedField, obj *model.Product) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3273,7 +3275,7 @@ func (ec *executionContext) fieldContext_Product_code(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Product", field, false, false, "String")
 }
 
-func (ec *executionContext) _Product_kind(ctx context.Context, field graphql.CollectedField, obj *Product) (ret graphql.Marshaler) {
+func (ec *executionContext) _Product_kind(ctx context.Context, field graphql.CollectedField, obj *model.Product) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3296,7 +3298,7 @@ func (ec *executionContext) fieldContext_Product_kind(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Product", field, false, false, "String")
 }
 
-func (ec *executionContext) _Product_name(ctx context.Context, field graphql.CollectedField, obj *Product) (ret graphql.Marshaler) {
+func (ec *executionContext) _Product_name(ctx context.Context, field graphql.CollectedField, obj *model.Product) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3319,7 +3321,7 @@ func (ec *executionContext) fieldContext_Product_name(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Product", field, false, false, "String")
 }
 
-func (ec *executionContext) _Product_names(ctx context.Context, field graphql.CollectedField, obj *Product) (ret graphql.Marshaler) {
+func (ec *executionContext) _Product_names(ctx context.Context, field graphql.CollectedField, obj *model.Product) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3342,7 +3344,7 @@ func (ec *executionContext) fieldContext_Product_names(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Product", field, false, false, "Translations")
 }
 
-func (ec *executionContext) _Product_baseUnit(ctx context.Context, field graphql.CollectedField, obj *Product) (ret graphql.Marshaler) {
+func (ec *executionContext) _Product_baseUnit(ctx context.Context, field graphql.CollectedField, obj *model.Product) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3365,7 +3367,7 @@ func (ec *executionContext) fieldContext_Product_baseUnit(_ context.Context, fie
 	return graphql.NewScalarFieldContext("Product", field, false, false, "String")
 }
 
-func (ec *executionContext) _Product_state(ctx context.Context, field graphql.CollectedField, obj *Product) (ret graphql.Marshaler) {
+func (ec *executionContext) _Product_state(ctx context.Context, field graphql.CollectedField, obj *model.Product) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3388,7 +3390,7 @@ func (ec *executionContext) fieldContext_Product_state(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Product", field, false, false, "String")
 }
 
-func (ec *executionContext) _Product_masked(ctx context.Context, field graphql.CollectedField, obj *Product) (ret graphql.Marshaler) {
+func (ec *executionContext) _Product_masked(ctx context.Context, field graphql.CollectedField, obj *model.Product) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3411,7 +3413,7 @@ func (ec *executionContext) fieldContext_Product_masked(_ context.Context, field
 	return graphql.NewScalarFieldContext("Product", field, false, false, "String")
 }
 
-func (ec *executionContext) _ProductDetail_id(ctx context.Context, field graphql.CollectedField, obj *ProductDetail) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProductDetail_id(ctx context.Context, field graphql.CollectedField, obj *model.ProductDetail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3434,7 +3436,7 @@ func (ec *executionContext) fieldContext_ProductDetail_id(_ context.Context, fie
 	return graphql.NewScalarFieldContext("ProductDetail", field, false, false, "ID")
 }
 
-func (ec *executionContext) _ProductDetail_code(ctx context.Context, field graphql.CollectedField, obj *ProductDetail) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProductDetail_code(ctx context.Context, field graphql.CollectedField, obj *model.ProductDetail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3457,7 +3459,7 @@ func (ec *executionContext) fieldContext_ProductDetail_code(_ context.Context, f
 	return graphql.NewScalarFieldContext("ProductDetail", field, false, false, "String")
 }
 
-func (ec *executionContext) _ProductDetail_kind(ctx context.Context, field graphql.CollectedField, obj *ProductDetail) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProductDetail_kind(ctx context.Context, field graphql.CollectedField, obj *model.ProductDetail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3480,7 +3482,7 @@ func (ec *executionContext) fieldContext_ProductDetail_kind(_ context.Context, f
 	return graphql.NewScalarFieldContext("ProductDetail", field, false, false, "String")
 }
 
-func (ec *executionContext) _ProductDetail_name(ctx context.Context, field graphql.CollectedField, obj *ProductDetail) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProductDetail_name(ctx context.Context, field graphql.CollectedField, obj *model.ProductDetail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3503,7 +3505,7 @@ func (ec *executionContext) fieldContext_ProductDetail_name(_ context.Context, f
 	return graphql.NewScalarFieldContext("ProductDetail", field, false, false, "String")
 }
 
-func (ec *executionContext) _ProductDetail_names(ctx context.Context, field graphql.CollectedField, obj *ProductDetail) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProductDetail_names(ctx context.Context, field graphql.CollectedField, obj *model.ProductDetail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3526,7 +3528,7 @@ func (ec *executionContext) fieldContext_ProductDetail_names(_ context.Context, 
 	return graphql.NewScalarFieldContext("ProductDetail", field, false, false, "Translations")
 }
 
-func (ec *executionContext) _ProductDetail_baseUnit(ctx context.Context, field graphql.CollectedField, obj *ProductDetail) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProductDetail_baseUnit(ctx context.Context, field graphql.CollectedField, obj *model.ProductDetail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3549,7 +3551,7 @@ func (ec *executionContext) fieldContext_ProductDetail_baseUnit(_ context.Contex
 	return graphql.NewScalarFieldContext("ProductDetail", field, false, false, "String")
 }
 
-func (ec *executionContext) _ProductDetail_state(ctx context.Context, field graphql.CollectedField, obj *ProductDetail) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProductDetail_state(ctx context.Context, field graphql.CollectedField, obj *model.ProductDetail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3572,7 +3574,7 @@ func (ec *executionContext) fieldContext_ProductDetail_state(_ context.Context, 
 	return graphql.NewScalarFieldContext("ProductDetail", field, false, false, "String")
 }
 
-func (ec *executionContext) _ProductDetail_masked(ctx context.Context, field graphql.CollectedField, obj *ProductDetail) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProductDetail_masked(ctx context.Context, field graphql.CollectedField, obj *model.ProductDetail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3595,7 +3597,7 @@ func (ec *executionContext) fieldContext_ProductDetail_masked(_ context.Context,
 	return graphql.NewScalarFieldContext("ProductDetail", field, false, false, "String")
 }
 
-func (ec *executionContext) _ProductDetail_stock(ctx context.Context, field graphql.CollectedField, obj *ProductDetail) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProductDetail_stock(ctx context.Context, field graphql.CollectedField, obj *model.ProductDetail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3607,8 +3609,8 @@ func (ec *executionContext) _ProductDetail_stock(ctx context.Context, field grap
 			return ec.Resolvers.ProductDetail().Stock(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []StockPosition) graphql.Marshaler {
-			return ec.marshalOStockPosition2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐStockPositionᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.StockPosition) graphql.Marshaler {
+			return ec.marshalOStockPosition2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐStockPositionᚄ(ctx, selections, v)
 		},
 		true,
 		false,
@@ -3627,7 +3629,7 @@ func (ec *executionContext) fieldContext_ProductDetail_stock(_ context.Context, 
 	return fc, nil
 }
 
-func (ec *executionContext) _ProductPage_items(ctx context.Context, field graphql.CollectedField, obj *ProductPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProductPage_items(ctx context.Context, field graphql.CollectedField, obj *model.ProductPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3639,8 +3641,8 @@ func (ec *executionContext) _ProductPage_items(ctx context.Context, field graphq
 			return obj.Items, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []Product) graphql.Marshaler {
-			return ec.marshalNProduct2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐProductᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.Product) graphql.Marshaler {
+			return ec.marshalNProduct2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐProductᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -3659,7 +3661,7 @@ func (ec *executionContext) fieldContext_ProductPage_items(_ context.Context, fi
 	return fc, nil
 }
 
-func (ec *executionContext) _ProductPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *ProductPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _ProductPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *model.ProductPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -3695,11 +3697,11 @@ func (ec *executionContext) _Query_myTasks(ctx context.Context, field graphql.Co
 			return ec.Resolvers.Query().MyTasks(ctx, fc.Args["taskType"].(*string), fc.Args["cursor"].(*string), fc.Args["limit"].(*int))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TaskPage) graphql.Marshaler {
-			return ec.marshalNTaskPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐTaskPage(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.TaskPage) graphql.Marshaler {
+			return ec.marshalOTaskPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐTaskPage(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Query_myTasks(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3739,8 +3741,8 @@ func (ec *executionContext) _Query_task(ctx context.Context, field graphql.Colle
 			return ec.Resolvers.Query().Task(ctx, fc.Args["component"].(string), fc.Args["id"].(string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *WorklistTask) graphql.Marshaler {
-			return ec.marshalOWorklistTask2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐWorklistTask(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.WorklistTask) graphql.Marshaler {
+			return ec.marshalOWorklistTask2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐWorklistTask(ctx, selections, v)
 		},
 		true,
 		false,
@@ -3783,11 +3785,11 @@ func (ec *executionContext) _Query_myNotifications(ctx context.Context, field gr
 			return ec.Resolvers.Query().MyNotifications(ctx, fc.Args["unread"].(*bool), fc.Args["cursor"].(*string), fc.Args["limit"].(*int))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *NotificationPage) graphql.Marshaler {
-			return ec.marshalNNotificationPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐNotificationPage(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.NotificationPage) graphql.Marshaler {
+			return ec.marshalONotificationPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐNotificationPage(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Query_myNotifications(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3827,11 +3829,11 @@ func (ec *executionContext) _Query_products(ctx context.Context, field graphql.C
 			return ec.Resolvers.Query().Products(ctx, fc.Args["q"].(*string), fc.Args["cursor"].(*string), fc.Args["limit"].(*int))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *ProductPage) graphql.Marshaler {
-			return ec.marshalNProductPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐProductPage(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.ProductPage) graphql.Marshaler {
+			return ec.marshalOProductPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐProductPage(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Query_products(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3871,8 +3873,8 @@ func (ec *executionContext) _Query_product(ctx context.Context, field graphql.Co
 			return ec.Resolvers.Query().Product(ctx, fc.Args["id"].(string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *ProductDetail) graphql.Marshaler {
-			return ec.marshalOProductDetail2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐProductDetail(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.ProductDetail) graphql.Marshaler {
+			return ec.marshalOProductDetail2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐProductDetail(ctx, selections, v)
 		},
 		true,
 		false,
@@ -3915,11 +3917,11 @@ func (ec *executionContext) _Query_customers(ctx context.Context, field graphql.
 			return ec.Resolvers.Query().Customers(ctx, fc.Args["legalEntityId"].(*string), fc.Args["q"].(*string), fc.Args["cursor"].(*string), fc.Args["limit"].(*int))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *PartnerPage) graphql.Marshaler {
-			return ec.marshalNPartnerPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐPartnerPage(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.PartnerPage) graphql.Marshaler {
+			return ec.marshalOPartnerPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐPartnerPage(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Query_customers(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3959,8 +3961,8 @@ func (ec *executionContext) _Query_customer(ctx context.Context, field graphql.C
 			return ec.Resolvers.Query().Customer(ctx, fc.Args["id"].(string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Partner) graphql.Marshaler {
-			return ec.marshalOPartner2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐPartner(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Partner) graphql.Marshaler {
+			return ec.marshalOPartner2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐPartner(ctx, selections, v)
 		},
 		true,
 		false,
@@ -4003,11 +4005,11 @@ func (ec *executionContext) _Query_myOrders(ctx context.Context, field graphql.C
 			return ec.Resolvers.Query().MyOrders(ctx, fc.Args["state"].(*string), fc.Args["cursor"].(*string), fc.Args["limit"].(*int))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *OrderPage) graphql.Marshaler {
-			return ec.marshalNOrderPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOrderPage(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.OrderPage) graphql.Marshaler {
+			return ec.marshalOOrderPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOrderPage(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Query_myOrders(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4047,8 +4049,8 @@ func (ec *executionContext) _Query_order(ctx context.Context, field graphql.Coll
 			return ec.Resolvers.Query().Order(ctx, fc.Args["id"].(string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Order) graphql.Marshaler {
-			return ec.marshalOOrder2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOrder(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Order) graphql.Marshaler {
+			return ec.marshalOOrder2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOrder(ctx, selections, v)
 		},
 		true,
 		false,
@@ -4091,11 +4093,11 @@ func (ec *executionContext) _Query_myOpportunities(ctx context.Context, field gr
 			return ec.Resolvers.Query().MyOpportunities(ctx, fc.Args["stage"].(*string), fc.Args["cursor"].(*string), fc.Args["limit"].(*int))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *OpportunityPage) graphql.Marshaler {
-			return ec.marshalNOpportunityPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOpportunityPage(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.OpportunityPage) graphql.Marshaler {
+			return ec.marshalOOpportunityPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOpportunityPage(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Query_myOpportunities(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4135,8 +4137,8 @@ func (ec *executionContext) _Query_opportunity(ctx context.Context, field graphq
 			return ec.Resolvers.Query().Opportunity(ctx, fc.Args["id"].(string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Opportunity) graphql.Marshaler {
-			return ec.marshalOOpportunity2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOpportunity(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Opportunity) graphql.Marshaler {
+			return ec.marshalOOpportunity2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOpportunity(ctx, selections, v)
 		},
 		true,
 		false,
@@ -4242,7 +4244,7 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _StockPosition_warehouse(ctx context.Context, field graphql.CollectedField, obj *StockPosition) (ret graphql.Marshaler) {
+func (ec *executionContext) _StockPosition_warehouse(ctx context.Context, field graphql.CollectedField, obj *model.StockPosition) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4254,8 +4256,8 @@ func (ec *executionContext) _StockPosition_warehouse(ctx context.Context, field 
 			return obj.Warehouse, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *Warehouse) graphql.Marshaler {
-			return ec.marshalNWarehouse2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐWarehouse(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Warehouse) graphql.Marshaler {
+			return ec.marshalNWarehouse2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐWarehouse(ctx, selections, v)
 		},
 		true,
 		true,
@@ -4274,7 +4276,7 @@ func (ec *executionContext) fieldContext_StockPosition_warehouse(_ context.Conte
 	return fc, nil
 }
 
-func (ec *executionContext) _StockPosition_onHand(ctx context.Context, field graphql.CollectedField, obj *StockPosition) (ret graphql.Marshaler) {
+func (ec *executionContext) _StockPosition_onHand(ctx context.Context, field graphql.CollectedField, obj *model.StockPosition) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4297,7 +4299,7 @@ func (ec *executionContext) fieldContext_StockPosition_onHand(_ context.Context,
 	return graphql.NewScalarFieldContext("StockPosition", field, false, false, "Decimal")
 }
 
-func (ec *executionContext) _StockPosition_reserved(ctx context.Context, field graphql.CollectedField, obj *StockPosition) (ret graphql.Marshaler) {
+func (ec *executionContext) _StockPosition_reserved(ctx context.Context, field graphql.CollectedField, obj *model.StockPosition) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4320,7 +4322,7 @@ func (ec *executionContext) fieldContext_StockPosition_reserved(_ context.Contex
 	return graphql.NewScalarFieldContext("StockPosition", field, false, false, "Decimal")
 }
 
-func (ec *executionContext) _StockPosition_available(ctx context.Context, field graphql.CollectedField, obj *StockPosition) (ret graphql.Marshaler) {
+func (ec *executionContext) _StockPosition_available(ctx context.Context, field graphql.CollectedField, obj *model.StockPosition) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4343,7 +4345,7 @@ func (ec *executionContext) fieldContext_StockPosition_available(_ context.Conte
 	return graphql.NewScalarFieldContext("StockPosition", field, false, false, "Decimal")
 }
 
-func (ec *executionContext) _SummaryField_key(ctx context.Context, field graphql.CollectedField, obj *SummaryField) (ret graphql.Marshaler) {
+func (ec *executionContext) _SummaryField_key(ctx context.Context, field graphql.CollectedField, obj *model.SummaryField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4366,7 +4368,7 @@ func (ec *executionContext) fieldContext_SummaryField_key(_ context.Context, fie
 	return graphql.NewScalarFieldContext("SummaryField", field, false, false, "String")
 }
 
-func (ec *executionContext) _SummaryField_label(ctx context.Context, field graphql.CollectedField, obj *SummaryField) (ret graphql.Marshaler) {
+func (ec *executionContext) _SummaryField_label(ctx context.Context, field graphql.CollectedField, obj *model.SummaryField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4389,7 +4391,7 @@ func (ec *executionContext) fieldContext_SummaryField_label(_ context.Context, f
 	return graphql.NewScalarFieldContext("SummaryField", field, false, false, "String")
 }
 
-func (ec *executionContext) _SummaryField_value(ctx context.Context, field graphql.CollectedField, obj *SummaryField) (ret graphql.Marshaler) {
+func (ec *executionContext) _SummaryField_value(ctx context.Context, field graphql.CollectedField, obj *model.SummaryField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4412,7 +4414,7 @@ func (ec *executionContext) fieldContext_SummaryField_value(_ context.Context, f
 	return graphql.NewScalarFieldContext("SummaryField", field, false, false, "String")
 }
 
-func (ec *executionContext) _TaskAction_component(ctx context.Context, field graphql.CollectedField, obj *TaskAction) (ret graphql.Marshaler) {
+func (ec *executionContext) _TaskAction_component(ctx context.Context, field graphql.CollectedField, obj *model.TaskAction) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4435,7 +4437,7 @@ func (ec *executionContext) fieldContext_TaskAction_component(_ context.Context,
 	return graphql.NewScalarFieldContext("TaskAction", field, false, false, "String")
 }
 
-func (ec *executionContext) _TaskAction_path(ctx context.Context, field graphql.CollectedField, obj *TaskAction) (ret graphql.Marshaler) {
+func (ec *executionContext) _TaskAction_path(ctx context.Context, field graphql.CollectedField, obj *model.TaskAction) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4458,7 +4460,7 @@ func (ec *executionContext) fieldContext_TaskAction_path(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("TaskAction", field, false, false, "String")
 }
 
-func (ec *executionContext) _TaskPage_items(ctx context.Context, field graphql.CollectedField, obj *TaskPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _TaskPage_items(ctx context.Context, field graphql.CollectedField, obj *model.TaskPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4470,8 +4472,8 @@ func (ec *executionContext) _TaskPage_items(ctx context.Context, field graphql.C
 			return obj.Items, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []WorklistTask) graphql.Marshaler {
-			return ec.marshalNWorklistTask2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐWorklistTaskᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.WorklistTask) graphql.Marshaler {
+			return ec.marshalNWorklistTask2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐWorklistTaskᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -4490,7 +4492,7 @@ func (ec *executionContext) fieldContext_TaskPage_items(_ context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _TaskPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *TaskPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _TaskPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *model.TaskPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4513,7 +4515,7 @@ func (ec *executionContext) fieldContext_TaskPage_nextCursor(_ context.Context, 
 	return graphql.NewScalarFieldContext("TaskPage", field, false, false, "String")
 }
 
-func (ec *executionContext) _TaskSummary_title(ctx context.Context, field graphql.CollectedField, obj *TaskSummary) (ret graphql.Marshaler) {
+func (ec *executionContext) _TaskSummary_title(ctx context.Context, field graphql.CollectedField, obj *model.TaskSummary) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4536,7 +4538,7 @@ func (ec *executionContext) fieldContext_TaskSummary_title(_ context.Context, fi
 	return graphql.NewScalarFieldContext("TaskSummary", field, false, false, "String")
 }
 
-func (ec *executionContext) _TaskSummary_fields(ctx context.Context, field graphql.CollectedField, obj *TaskSummary) (ret graphql.Marshaler) {
+func (ec *executionContext) _TaskSummary_fields(ctx context.Context, field graphql.CollectedField, obj *model.TaskSummary) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4548,8 +4550,8 @@ func (ec *executionContext) _TaskSummary_fields(ctx context.Context, field graph
 			return obj.Fields, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []SummaryField) graphql.Marshaler {
-			return ec.marshalNSummaryField2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐSummaryFieldᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v []model.SummaryField) graphql.Marshaler {
+			return ec.marshalNSummaryField2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐSummaryFieldᚄ(ctx, selections, v)
 		},
 		true,
 		true,
@@ -4568,7 +4570,7 @@ func (ec *executionContext) fieldContext_TaskSummary_fields(_ context.Context, f
 	return fc, nil
 }
 
-func (ec *executionContext) _Warehouse_id(ctx context.Context, field graphql.CollectedField, obj *Warehouse) (ret graphql.Marshaler) {
+func (ec *executionContext) _Warehouse_id(ctx context.Context, field graphql.CollectedField, obj *model.Warehouse) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4591,7 +4593,7 @@ func (ec *executionContext) fieldContext_Warehouse_id(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Warehouse", field, false, false, "ID")
 }
 
-func (ec *executionContext) _Warehouse_code(ctx context.Context, field graphql.CollectedField, obj *Warehouse) (ret graphql.Marshaler) {
+func (ec *executionContext) _Warehouse_code(ctx context.Context, field graphql.CollectedField, obj *model.Warehouse) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4614,7 +4616,7 @@ func (ec *executionContext) fieldContext_Warehouse_code(_ context.Context, field
 	return graphql.NewScalarFieldContext("Warehouse", field, false, false, "String")
 }
 
-func (ec *executionContext) _Warehouse_name(ctx context.Context, field graphql.CollectedField, obj *Warehouse) (ret graphql.Marshaler) {
+func (ec *executionContext) _Warehouse_name(ctx context.Context, field graphql.CollectedField, obj *model.Warehouse) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4637,7 +4639,7 @@ func (ec *executionContext) fieldContext_Warehouse_name(_ context.Context, field
 	return graphql.NewScalarFieldContext("Warehouse", field, false, false, "String")
 }
 
-func (ec *executionContext) _WorklistTask_id(ctx context.Context, field graphql.CollectedField, obj *WorklistTask) (ret graphql.Marshaler) {
+func (ec *executionContext) _WorklistTask_id(ctx context.Context, field graphql.CollectedField, obj *model.WorklistTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4660,7 +4662,7 @@ func (ec *executionContext) fieldContext_WorklistTask_id(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("WorklistTask", field, false, false, "ID")
 }
 
-func (ec *executionContext) _WorklistTask_component(ctx context.Context, field graphql.CollectedField, obj *WorklistTask) (ret graphql.Marshaler) {
+func (ec *executionContext) _WorklistTask_component(ctx context.Context, field graphql.CollectedField, obj *model.WorklistTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4683,7 +4685,7 @@ func (ec *executionContext) fieldContext_WorklistTask_component(_ context.Contex
 	return graphql.NewScalarFieldContext("WorklistTask", field, false, false, "String")
 }
 
-func (ec *executionContext) _WorklistTask_taskType(ctx context.Context, field graphql.CollectedField, obj *WorklistTask) (ret graphql.Marshaler) {
+func (ec *executionContext) _WorklistTask_taskType(ctx context.Context, field graphql.CollectedField, obj *model.WorklistTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4706,7 +4708,7 @@ func (ec *executionContext) fieldContext_WorklistTask_taskType(_ context.Context
 	return graphql.NewScalarFieldContext("WorklistTask", field, false, false, "String")
 }
 
-func (ec *executionContext) _WorklistTask_state(ctx context.Context, field graphql.CollectedField, obj *WorklistTask) (ret graphql.Marshaler) {
+func (ec *executionContext) _WorklistTask_state(ctx context.Context, field graphql.CollectedField, obj *model.WorklistTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4729,7 +4731,7 @@ func (ec *executionContext) fieldContext_WorklistTask_state(_ context.Context, f
 	return graphql.NewScalarFieldContext("WorklistTask", field, false, false, "String")
 }
 
-func (ec *executionContext) _WorklistTask_version(ctx context.Context, field graphql.CollectedField, obj *WorklistTask) (ret graphql.Marshaler) {
+func (ec *executionContext) _WorklistTask_version(ctx context.Context, field graphql.CollectedField, obj *model.WorklistTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4752,7 +4754,7 @@ func (ec *executionContext) fieldContext_WorklistTask_version(_ context.Context,
 	return graphql.NewScalarFieldContext("WorklistTask", field, false, false, "Int")
 }
 
-func (ec *executionContext) _WorklistTask_dueAt(ctx context.Context, field graphql.CollectedField, obj *WorklistTask) (ret graphql.Marshaler) {
+func (ec *executionContext) _WorklistTask_dueAt(ctx context.Context, field graphql.CollectedField, obj *model.WorklistTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4775,7 +4777,7 @@ func (ec *executionContext) fieldContext_WorklistTask_dueAt(_ context.Context, f
 	return graphql.NewScalarFieldContext("WorklistTask", field, false, false, "DateTime")
 }
 
-func (ec *executionContext) _WorklistTask_summary(ctx context.Context, field graphql.CollectedField, obj *WorklistTask) (ret graphql.Marshaler) {
+func (ec *executionContext) _WorklistTask_summary(ctx context.Context, field graphql.CollectedField, obj *model.WorklistTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4787,8 +4789,8 @@ func (ec *executionContext) _WorklistTask_summary(ctx context.Context, field gra
 			return obj.Summary, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TaskSummary) graphql.Marshaler {
-			return ec.marshalNTaskSummary2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐTaskSummary(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.TaskSummary) graphql.Marshaler {
+			return ec.marshalNTaskSummary2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐTaskSummary(ctx, selections, v)
 		},
 		true,
 		true,
@@ -4807,7 +4809,7 @@ func (ec *executionContext) fieldContext_WorklistTask_summary(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _WorklistTask_action(ctx context.Context, field graphql.CollectedField, obj *WorklistTask) (ret graphql.Marshaler) {
+func (ec *executionContext) _WorklistTask_action(ctx context.Context, field graphql.CollectedField, obj *model.WorklistTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4819,8 +4821,8 @@ func (ec *executionContext) _WorklistTask_action(ctx context.Context, field grap
 			return obj.Action, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *TaskAction) graphql.Marshaler {
-			return ec.marshalNTaskAction2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐTaskAction(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.TaskAction) graphql.Marshaler {
+			return ec.marshalNTaskAction2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐTaskAction(ctx, selections, v)
 		},
 		true,
 		true,
@@ -4839,7 +4841,7 @@ func (ec *executionContext) fieldContext_WorklistTask_action(_ context.Context, 
 	return fc, nil
 }
 
-func (ec *executionContext) _WorklistTask_stale(ctx context.Context, field graphql.CollectedField, obj *WorklistTask) (ret graphql.Marshaler) {
+func (ec *executionContext) _WorklistTask_stale(ctx context.Context, field graphql.CollectedField, obj *model.WorklistTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -4862,7 +4864,7 @@ func (ec *executionContext) fieldContext_WorklistTask_stale(_ context.Context, f
 	return graphql.NewScalarFieldContext("WorklistTask", field, false, false, "Boolean")
 }
 
-func (ec *executionContext) _WorklistTask_receivedAt(ctx context.Context, field graphql.CollectedField, obj *WorklistTask) (ret graphql.Marshaler) {
+func (ec *executionContext) _WorklistTask_receivedAt(ctx context.Context, field graphql.CollectedField, obj *model.WorklistTask) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -5968,7 +5970,7 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 var customerRefImplementors = []string{"CustomerRef"}
 
-func (ec *executionContext) _CustomerRef(ctx context.Context, sel ast.SelectionSet, obj *CustomerRef) graphql.Marshaler {
+func (ec *executionContext) _CustomerRef(ctx context.Context, sel ast.SelectionSet, obj *model.CustomerRef) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, customerRefImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6006,7 +6008,7 @@ func (ec *executionContext) _CustomerRef(ctx context.Context, sel ast.SelectionS
 
 var notificationImplementors = []string{"Notification"}
 
-func (ec *executionContext) _Notification(ctx context.Context, sel ast.SelectionSet, obj *Notification) graphql.Marshaler {
+func (ec *executionContext) _Notification(ctx context.Context, sel ast.SelectionSet, obj *model.Notification) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, notificationImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6084,7 +6086,7 @@ func (ec *executionContext) _Notification(ctx context.Context, sel ast.Selection
 
 var notificationPageImplementors = []string{"NotificationPage"}
 
-func (ec *executionContext) _NotificationPage(ctx context.Context, sel ast.SelectionSet, obj *NotificationPage) graphql.Marshaler {
+func (ec *executionContext) _NotificationPage(ctx context.Context, sel ast.SelectionSet, obj *model.NotificationPage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, notificationPageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6127,7 +6129,7 @@ func (ec *executionContext) _NotificationPage(ctx context.Context, sel ast.Selec
 
 var opportunityImplementors = []string{"Opportunity"}
 
-func (ec *executionContext) _Opportunity(ctx context.Context, sel ast.SelectionSet, obj *Opportunity) graphql.Marshaler {
+func (ec *executionContext) _Opportunity(ctx context.Context, sel ast.SelectionSet, obj *model.Opportunity) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, opportunityImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6210,7 +6212,7 @@ func (ec *executionContext) _Opportunity(ctx context.Context, sel ast.SelectionS
 
 var opportunityPageImplementors = []string{"OpportunityPage"}
 
-func (ec *executionContext) _OpportunityPage(ctx context.Context, sel ast.SelectionSet, obj *OpportunityPage) graphql.Marshaler {
+func (ec *executionContext) _OpportunityPage(ctx context.Context, sel ast.SelectionSet, obj *model.OpportunityPage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, opportunityPageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6248,7 +6250,7 @@ func (ec *executionContext) _OpportunityPage(ctx context.Context, sel ast.Select
 
 var orderImplementors = []string{"Order"}
 
-func (ec *executionContext) _Order(ctx context.Context, sel ast.SelectionSet, obj *Order) graphql.Marshaler {
+func (ec *executionContext) _Order(ctx context.Context, sel ast.SelectionSet, obj *model.Order) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, orderImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6326,7 +6328,7 @@ func (ec *executionContext) _Order(ctx context.Context, sel ast.SelectionSet, ob
 
 var orderPageImplementors = []string{"OrderPage"}
 
-func (ec *executionContext) _OrderPage(ctx context.Context, sel ast.SelectionSet, obj *OrderPage) graphql.Marshaler {
+func (ec *executionContext) _OrderPage(ctx context.Context, sel ast.SelectionSet, obj *model.OrderPage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, orderPageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6364,7 +6366,7 @@ func (ec *executionContext) _OrderPage(ctx context.Context, sel ast.SelectionSet
 
 var partnerImplementors = []string{"Partner"}
 
-func (ec *executionContext) _Partner(ctx context.Context, sel ast.SelectionSet, obj *Partner) graphql.Marshaler {
+func (ec *executionContext) _Partner(ctx context.Context, sel ast.SelectionSet, obj *model.Partner) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, partnerImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6432,7 +6434,7 @@ func (ec *executionContext) _Partner(ctx context.Context, sel ast.SelectionSet, 
 
 var partnerPageImplementors = []string{"PartnerPage"}
 
-func (ec *executionContext) _PartnerPage(ctx context.Context, sel ast.SelectionSet, obj *PartnerPage) graphql.Marshaler {
+func (ec *executionContext) _PartnerPage(ctx context.Context, sel ast.SelectionSet, obj *model.PartnerPage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, partnerPageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6470,7 +6472,7 @@ func (ec *executionContext) _PartnerPage(ctx context.Context, sel ast.SelectionS
 
 var productImplementors = []string{"Product"}
 
-func (ec *executionContext) _Product(ctx context.Context, sel ast.SelectionSet, obj *Product) graphql.Marshaler {
+func (ec *executionContext) _Product(ctx context.Context, sel ast.SelectionSet, obj *model.Product) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, productImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6538,7 +6540,7 @@ func (ec *executionContext) _Product(ctx context.Context, sel ast.SelectionSet, 
 
 var productDetailImplementors = []string{"ProductDetail"}
 
-func (ec *executionContext) _ProductDetail(ctx context.Context, sel ast.SelectionSet, obj *ProductDetail) graphql.Marshaler {
+func (ec *executionContext) _ProductDetail(ctx context.Context, sel ast.SelectionSet, obj *model.ProductDetail) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, productDetailImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6612,7 +6614,7 @@ func (ec *executionContext) _ProductDetail(ctx context.Context, sel ast.Selectio
 
 var productPageImplementors = []string{"ProductPage"}
 
-func (ec *executionContext) _ProductPage(ctx context.Context, sel ast.SelectionSet, obj *ProductPage) graphql.Marshaler {
+func (ec *executionContext) _ProductPage(ctx context.Context, sel ast.SelectionSet, obj *model.ProductPage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, productPageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6669,7 +6671,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = graphql.MarshalString("Query")
 		case "myTasks":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
-				true, true,
+				true, false,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_myTasks(ctx, field)
 				})
@@ -6681,13 +6683,13 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				})
 		case "myNotifications":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
-				true, true,
+				true, false,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_myNotifications(ctx, field)
 				})
 		case "products":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
-				true, true,
+				true, false,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_products(ctx, field)
 				})
@@ -6699,7 +6701,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				})
 		case "customers":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
-				true, true,
+				true, false,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_customers(ctx, field)
 				})
@@ -6711,7 +6713,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				})
 		case "myOrders":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
-				true, true,
+				true, false,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_myOrders(ctx, field)
 				})
@@ -6723,7 +6725,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				})
 		case "myOpportunities":
 			out.ResolveRootConcurrently(innerCtx, ec.OperationContext, i,
-				true, true,
+				true, false,
 				func(ctx context.Context) graphql.Marshaler {
 					return ec._Query_myOpportunities(ctx, field)
 				})
@@ -6766,7 +6768,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 
 var stockPositionImplementors = []string{"StockPosition"}
 
-func (ec *executionContext) _StockPosition(ctx context.Context, sel ast.SelectionSet, obj *StockPosition) graphql.Marshaler {
+func (ec *executionContext) _StockPosition(ctx context.Context, sel ast.SelectionSet, obj *model.StockPosition) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, stockPositionImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6814,7 +6816,7 @@ func (ec *executionContext) _StockPosition(ctx context.Context, sel ast.Selectio
 
 var summaryFieldImplementors = []string{"SummaryField"}
 
-func (ec *executionContext) _SummaryField(ctx context.Context, sel ast.SelectionSet, obj *SummaryField) graphql.Marshaler {
+func (ec *executionContext) _SummaryField(ctx context.Context, sel ast.SelectionSet, obj *model.SummaryField) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, summaryFieldImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6857,7 +6859,7 @@ func (ec *executionContext) _SummaryField(ctx context.Context, sel ast.Selection
 
 var taskActionImplementors = []string{"TaskAction"}
 
-func (ec *executionContext) _TaskAction(ctx context.Context, sel ast.SelectionSet, obj *TaskAction) graphql.Marshaler {
+func (ec *executionContext) _TaskAction(ctx context.Context, sel ast.SelectionSet, obj *model.TaskAction) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, taskActionImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6895,7 +6897,7 @@ func (ec *executionContext) _TaskAction(ctx context.Context, sel ast.SelectionSe
 
 var taskPageImplementors = []string{"TaskPage"}
 
-func (ec *executionContext) _TaskPage(ctx context.Context, sel ast.SelectionSet, obj *TaskPage) graphql.Marshaler {
+func (ec *executionContext) _TaskPage(ctx context.Context, sel ast.SelectionSet, obj *model.TaskPage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, taskPageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6933,7 +6935,7 @@ func (ec *executionContext) _TaskPage(ctx context.Context, sel ast.SelectionSet,
 
 var taskSummaryImplementors = []string{"TaskSummary"}
 
-func (ec *executionContext) _TaskSummary(ctx context.Context, sel ast.SelectionSet, obj *TaskSummary) graphql.Marshaler {
+func (ec *executionContext) _TaskSummary(ctx context.Context, sel ast.SelectionSet, obj *model.TaskSummary) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, taskSummaryImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -6971,7 +6973,7 @@ func (ec *executionContext) _TaskSummary(ctx context.Context, sel ast.SelectionS
 
 var warehouseImplementors = []string{"Warehouse"}
 
-func (ec *executionContext) _Warehouse(ctx context.Context, sel ast.SelectionSet, obj *Warehouse) graphql.Marshaler {
+func (ec *executionContext) _Warehouse(ctx context.Context, sel ast.SelectionSet, obj *model.Warehouse) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, warehouseImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -7014,7 +7016,7 @@ func (ec *executionContext) _Warehouse(ctx context.Context, sel ast.SelectionSet
 
 var worklistTaskImplementors = []string{"WorklistTask"}
 
-func (ec *executionContext) _WorklistTask(ctx context.Context, sel ast.SelectionSet, obj *WorklistTask) graphql.Marshaler {
+func (ec *executionContext) _WorklistTask(ctx context.Context, sel ast.SelectionSet, obj *model.WorklistTask) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, worklistTaskImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -7466,7 +7468,7 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐCustomerRef(ctx context.Context, sel ast.SelectionSet, v *CustomerRef) graphql.Marshaler {
+func (ec *executionContext) marshalNCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐCustomerRef(ctx context.Context, sel ast.SelectionSet, v *model.CustomerRef) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "CustomerRef!")
 		return graphql.Null
@@ -7530,15 +7532,15 @@ func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.Selecti
 	return res
 }
 
-func (ec *executionContext) marshalNNotification2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐNotification(ctx context.Context, sel ast.SelectionSet, v Notification) graphql.Marshaler {
+func (ec *executionContext) marshalNNotification2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐNotification(ctx context.Context, sel ast.SelectionSet, v model.Notification) graphql.Marshaler {
 	return ec._Notification(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNNotification2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐNotificationᚄ(ctx context.Context, sel ast.SelectionSet, v []Notification) graphql.Marshaler {
+func (ec *executionContext) marshalNNotification2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐNotificationᚄ(ctx context.Context, sel ast.SelectionSet, v []model.Notification) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNNotification2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐNotification(ctx, sel, v[i])
+		return ec.marshalNNotification2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐNotification(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -7550,23 +7552,15 @@ func (ec *executionContext) marshalNNotification2ᚕgithubᚗcomᚋbrickKitᚋin
 	return ret
 }
 
-func (ec *executionContext) marshalNNotificationPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐNotificationPage(ctx context.Context, sel ast.SelectionSet, v *NotificationPage) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "NotificationPage!")
-		return graphql.Null
-	}
-	return ec._NotificationPage(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNOpportunity2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOpportunity(ctx context.Context, sel ast.SelectionSet, v Opportunity) graphql.Marshaler {
+func (ec *executionContext) marshalNOpportunity2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOpportunity(ctx context.Context, sel ast.SelectionSet, v model.Opportunity) graphql.Marshaler {
 	return ec._Opportunity(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNOpportunity2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOpportunityᚄ(ctx context.Context, sel ast.SelectionSet, v []Opportunity) graphql.Marshaler {
+func (ec *executionContext) marshalNOpportunity2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOpportunityᚄ(ctx context.Context, sel ast.SelectionSet, v []model.Opportunity) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNOpportunity2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOpportunity(ctx, sel, v[i])
+		return ec.marshalNOpportunity2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOpportunity(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -7578,23 +7572,15 @@ func (ec *executionContext) marshalNOpportunity2ᚕgithubᚗcomᚋbrickKitᚋinf
 	return ret
 }
 
-func (ec *executionContext) marshalNOpportunityPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOpportunityPage(ctx context.Context, sel ast.SelectionSet, v *OpportunityPage) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "OpportunityPage!")
-		return graphql.Null
-	}
-	return ec._OpportunityPage(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNOrder2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOrder(ctx context.Context, sel ast.SelectionSet, v Order) graphql.Marshaler {
+func (ec *executionContext) marshalNOrder2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOrder(ctx context.Context, sel ast.SelectionSet, v model.Order) graphql.Marshaler {
 	return ec._Order(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNOrder2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOrderᚄ(ctx context.Context, sel ast.SelectionSet, v []Order) graphql.Marshaler {
+func (ec *executionContext) marshalNOrder2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOrderᚄ(ctx context.Context, sel ast.SelectionSet, v []model.Order) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNOrder2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOrder(ctx, sel, v[i])
+		return ec.marshalNOrder2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOrder(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -7606,23 +7592,15 @@ func (ec *executionContext) marshalNOrder2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑb
 	return ret
 }
 
-func (ec *executionContext) marshalNOrderPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOrderPage(ctx context.Context, sel ast.SelectionSet, v *OrderPage) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "OrderPage!")
-		return graphql.Null
-	}
-	return ec._OrderPage(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNPartner2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐPartner(ctx context.Context, sel ast.SelectionSet, v Partner) graphql.Marshaler {
+func (ec *executionContext) marshalNPartner2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐPartner(ctx context.Context, sel ast.SelectionSet, v model.Partner) graphql.Marshaler {
 	return ec._Partner(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNPartner2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐPartnerᚄ(ctx context.Context, sel ast.SelectionSet, v []Partner) graphql.Marshaler {
+func (ec *executionContext) marshalNPartner2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐPartnerᚄ(ctx context.Context, sel ast.SelectionSet, v []model.Partner) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNPartner2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐPartner(ctx, sel, v[i])
+		return ec.marshalNPartner2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐPartner(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -7634,23 +7612,15 @@ func (ec *executionContext) marshalNPartner2ᚕgithubᚗcomᚋbrickKitᚋinfra�
 	return ret
 }
 
-func (ec *executionContext) marshalNPartnerPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐPartnerPage(ctx context.Context, sel ast.SelectionSet, v *PartnerPage) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "PartnerPage!")
-		return graphql.Null
-	}
-	return ec._PartnerPage(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNProduct2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐProduct(ctx context.Context, sel ast.SelectionSet, v Product) graphql.Marshaler {
+func (ec *executionContext) marshalNProduct2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐProduct(ctx context.Context, sel ast.SelectionSet, v model.Product) graphql.Marshaler {
 	return ec._Product(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNProduct2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐProductᚄ(ctx context.Context, sel ast.SelectionSet, v []Product) graphql.Marshaler {
+func (ec *executionContext) marshalNProduct2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐProductᚄ(ctx context.Context, sel ast.SelectionSet, v []model.Product) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNProduct2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐProduct(ctx, sel, v[i])
+		return ec.marshalNProduct2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐProduct(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -7662,15 +7632,7 @@ func (ec *executionContext) marshalNProduct2ᚕgithubᚗcomᚋbrickKitᚋinfra�
 	return ret
 }
 
-func (ec *executionContext) marshalNProductPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐProductPage(ctx context.Context, sel ast.SelectionSet, v *ProductPage) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "ProductPage!")
-		return graphql.Null
-	}
-	return ec._ProductPage(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNStockPosition2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐStockPosition(ctx context.Context, sel ast.SelectionSet, v StockPosition) graphql.Marshaler {
+func (ec *executionContext) marshalNStockPosition2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐStockPosition(ctx context.Context, sel ast.SelectionSet, v model.StockPosition) graphql.Marshaler {
 	return ec._StockPosition(ctx, sel, &v)
 }
 
@@ -7717,15 +7679,15 @@ func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel
 	return ret
 }
 
-func (ec *executionContext) marshalNSummaryField2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐSummaryField(ctx context.Context, sel ast.SelectionSet, v SummaryField) graphql.Marshaler {
+func (ec *executionContext) marshalNSummaryField2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐSummaryField(ctx context.Context, sel ast.SelectionSet, v model.SummaryField) graphql.Marshaler {
 	return ec._SummaryField(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNSummaryField2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐSummaryFieldᚄ(ctx context.Context, sel ast.SelectionSet, v []SummaryField) graphql.Marshaler {
+func (ec *executionContext) marshalNSummaryField2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐSummaryFieldᚄ(ctx context.Context, sel ast.SelectionSet, v []model.SummaryField) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNSummaryField2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐSummaryField(ctx, sel, v[i])
+		return ec.marshalNSummaryField2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐSummaryField(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -7737,7 +7699,7 @@ func (ec *executionContext) marshalNSummaryField2ᚕgithubᚗcomᚋbrickKitᚋin
 	return ret
 }
 
-func (ec *executionContext) marshalNTaskAction2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐTaskAction(ctx context.Context, sel ast.SelectionSet, v *TaskAction) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskAction2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐTaskAction(ctx context.Context, sel ast.SelectionSet, v *model.TaskAction) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "TaskAction!")
 		return graphql.Null
@@ -7745,15 +7707,7 @@ func (ec *executionContext) marshalNTaskAction2ᚖgithubᚗcomᚋbrickKitᚋinfr
 	return ec._TaskAction(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNTaskPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐTaskPage(ctx context.Context, sel ast.SelectionSet, v *TaskPage) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "TaskPage!")
-		return graphql.Null
-	}
-	return ec._TaskPage(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNTaskSummary2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐTaskSummary(ctx context.Context, sel ast.SelectionSet, v *TaskSummary) graphql.Marshaler {
+func (ec *executionContext) marshalNTaskSummary2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐTaskSummary(ctx context.Context, sel ast.SelectionSet, v *model.TaskSummary) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "TaskSummary!")
 		return graphql.Null
@@ -7761,7 +7715,7 @@ func (ec *executionContext) marshalNTaskSummary2ᚖgithubᚗcomᚋbrickKitᚋinf
 	return ec._TaskSummary(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNWarehouse2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐWarehouse(ctx context.Context, sel ast.SelectionSet, v *Warehouse) graphql.Marshaler {
+func (ec *executionContext) marshalNWarehouse2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐWarehouse(ctx context.Context, sel ast.SelectionSet, v *model.Warehouse) graphql.Marshaler {
 	if v == nil {
 		graphql.AddInvalidNullError(ctx, "Warehouse!")
 		return graphql.Null
@@ -7769,15 +7723,15 @@ func (ec *executionContext) marshalNWarehouse2ᚖgithubᚗcomᚋbrickKitᚋinfra
 	return ec._Warehouse(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalNWorklistTask2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐWorklistTask(ctx context.Context, sel ast.SelectionSet, v WorklistTask) graphql.Marshaler {
+func (ec *executionContext) marshalNWorklistTask2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐWorklistTask(ctx context.Context, sel ast.SelectionSet, v model.WorklistTask) graphql.Marshaler {
 	return ec._WorklistTask(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNWorklistTask2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐWorklistTaskᚄ(ctx context.Context, sel ast.SelectionSet, v []WorklistTask) graphql.Marshaler {
+func (ec *executionContext) marshalNWorklistTask2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐWorklistTaskᚄ(ctx context.Context, sel ast.SelectionSet, v []model.WorklistTask) graphql.Marshaler {
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNWorklistTask2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐWorklistTask(ctx, sel, v[i])
+		return ec.marshalNWorklistTask2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐWorklistTask(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -8033,42 +7987,77 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	return res
 }
 
-func (ec *executionContext) marshalOOpportunity2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOpportunity(ctx context.Context, sel ast.SelectionSet, v *Opportunity) graphql.Marshaler {
+func (ec *executionContext) marshalONotificationPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐNotificationPage(ctx context.Context, sel ast.SelectionSet, v *model.NotificationPage) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._NotificationPage(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOOpportunity2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOpportunity(ctx context.Context, sel ast.SelectionSet, v *model.Opportunity) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Opportunity(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOOrder2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐOrder(ctx context.Context, sel ast.SelectionSet, v *Order) graphql.Marshaler {
+func (ec *executionContext) marshalOOpportunityPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOpportunityPage(ctx context.Context, sel ast.SelectionSet, v *model.OpportunityPage) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._OpportunityPage(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOOrder2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOrder(ctx context.Context, sel ast.SelectionSet, v *model.Order) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Order(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOPartner2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐPartner(ctx context.Context, sel ast.SelectionSet, v *Partner) graphql.Marshaler {
+func (ec *executionContext) marshalOOrderPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐOrderPage(ctx context.Context, sel ast.SelectionSet, v *model.OrderPage) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._OrderPage(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOPartner2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐPartner(ctx context.Context, sel ast.SelectionSet, v *model.Partner) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Partner(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOProductDetail2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐProductDetail(ctx context.Context, sel ast.SelectionSet, v *ProductDetail) graphql.Marshaler {
+func (ec *executionContext) marshalOPartnerPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐPartnerPage(ctx context.Context, sel ast.SelectionSet, v *model.PartnerPage) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._PartnerPage(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOProductDetail2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐProductDetail(ctx context.Context, sel ast.SelectionSet, v *model.ProductDetail) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._ProductDetail(ctx, sel, v)
 }
 
-func (ec *executionContext) marshalOStockPosition2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐStockPositionᚄ(ctx context.Context, sel ast.SelectionSet, v []StockPosition) graphql.Marshaler {
+func (ec *executionContext) marshalOProductPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐProductPage(ctx context.Context, sel ast.SelectionSet, v *model.ProductPage) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._ProductPage(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOStockPosition2ᚕgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐStockPositionᚄ(ctx context.Context, sel ast.SelectionSet, v []model.StockPosition) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
 		fc := graphql.GetFieldContext(ctx)
 		fc.Result = &v[i]
-		return ec.marshalNStockPosition2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐStockPosition(ctx, sel, v[i])
+		return ec.marshalNStockPosition2githubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐStockPosition(ctx, sel, v[i])
 	})
 
 	for _, e := range ret {
@@ -8116,6 +8105,13 @@ func (ec *executionContext) marshalOStringMap2map(ctx context.Context, sel ast.S
 	return res
 }
 
+func (ec *executionContext) marshalOTaskPage2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐTaskPage(ctx context.Context, sel ast.SelectionSet, v *model.TaskPage) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._TaskPage(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalOTranslations2map(ctx context.Context, v any) (map[string]any, error) {
 	if v == nil {
 		return nil, nil
@@ -8134,7 +8130,7 @@ func (ec *executionContext) marshalOTranslations2map(ctx context.Context, sel as
 	return res
 }
 
-func (ec *executionContext) marshalOWorklistTask2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋgraphᚐWorklistTask(ctx context.Context, sel ast.SelectionSet, v *WorklistTask) graphql.Marshaler {
+func (ec *executionContext) marshalOWorklistTask2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐWorklistTask(ctx context.Context, sel ast.SelectionSet, v *model.WorklistTask) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
