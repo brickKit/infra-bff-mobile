@@ -1,0 +1,112 @@
+apiVersion: brickkit/v1
+kind: Component
+
+metadata:
+  id: infra/bff-mobile
+  name: Mobile aggregation
+  version: 3.0.0
+  description: "The mobile entry's read-only aggregation (protocol 20, D68's exception): page-shaped GraphQL queries by persisted query only, each root field read from its owner's user surface with the caller's own credential; an owner that is slow or refuses leaves only its field empty and named, an owner not installed is not in the schema; no database, no events, no writes"
+  repository: https://github.com/brickKit/infra-bff-mobile
+
+dependencies:
+  components:
+    - id: infra/workflow@3.0.13
+      optional: true
+    - id: infra/notification@3.0.11
+      optional: true
+    - id: mdm/product@3.0.49
+      optional: true
+    - id: erp/inventory@3.0.52
+      optional: true
+    - id: mdm/partner@3.0.52
+      optional: true
+    - id: erp/sales@3.0.65
+      optional: true
+    - id: crm/opportunity@3.0.13
+      optional: true
+
+deployment:
+  type: container
+  build:
+    context: .
+    dockerfile: Dockerfile
+  port: 8500
+
+healthCheck:
+  type: http
+  path: /healthz
+
+readinessCheck:
+  type: http
+  path: /readyz
+
+local:
+  runCommand: [go, run, .]
+
+configSchema:
+  properties:
+    AUDIT_GRPC_URL:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    AUTHZ_GRPC_URL:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    BFF_PERSISTED_QUERIES:
+      description: 'the persisted queries (BM02): a JSON object of query text by its SHA-256 (lower-case hex); write file://<path> in the component''s config (BrickKit passes the content), or set BFF_PERSISTED_QUERIES_FILE outside BrickKit; unset: every query is refused'
+      secret: true
+      type: string
+    DEPLOYMENT_ID:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    IAM_ISSUER:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    IAM_JWKS_URL:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    LOG_LEVEL:
+      description: SDK default info
+      enum:
+        - debug
+        - info
+        - warn
+        - error
+      type: string
+    OTEL_URL:
+      description: 'process-level: the same for every member of a shell'
+      type: string
+    RECOVERY_PHASE:
+      description: 'process-level: the same for every member of a shell'
+      enum:
+        - frozen
+        - redelivering
+        - replaying
+        - verifying
+        - read_only
+      type: string
+    SERVICE_TLS_CA_FILE:
+      description: a file path, re-read on rotation
+      mount: file
+      secret: true
+      type: string
+    SERVICE_TLS_CERT_FILE:
+      description: a file path, re-read on rotation
+      mount: file
+      secret: true
+      type: string
+    SERVICE_TLS_KEY_FILE:
+      description: a file path, re-read on rotation
+      mount: file
+      secret: true
+      type: string
+    STOP_DRAIN_DELAY:
+      description: a duration (e.g. 2s, 500ms); SDK default 2s
+      type: string
+    STOP_TIMEOUT:
+      description: a duration (e.g. 2s, 500ms); SDK default 30s
+      type: string
+  required: []
+  type: object
+
+release:
+  goModule: true

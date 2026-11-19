@@ -41,11 +41,11 @@
 | 编号 | 规则 |
 | --- | --- |
 | BM01 | **入口**：用户面只有一条受保护的路由 `POST /api/bff-mobile/graphql`（在公网前缀 `/api/bff-mobile` 下，P11.11）。资源 `infra.bff_mobile.entry`（维度 `{}`），操作 `infra.bff_mobile.entry.use`（用途 read）：处理函数先判断调用者有这个操作，没有答 `PERMISSION_DENIED`（403；入口没有记录，不是“看不见答 404”的情形），什么也不调。请求体是通行的持久化查询形式 `{"operationName": …, "variables": {…}, "extensions": {"persistedQuery": {"version": 1, "sha256Hash": "<摘要>"}}}`，不带查询文本。答复是 GraphQL 的 JSON（`data`、`errors`），HTTP 200；入口自己的拒绝（未认证、没有操作、请求体不对、查询不在清单）用 4xx 与问题详情。**客户端约定**（经边缘的浏览器会话）：每个请求带 `BE-Request: 1`（P11.2，POST 都要）；只为刷新未读数的轮询另带 `BE-Polling: 1`（P11.7，不续期会话） |
-| BM02 | **持久化查询**：清单（摘要 → 查询文本）是仍受支持的各个移动客户端版本用到的查询的并集，由移动入口的构建产出，淘汰随客户端版本的支持期；部署配置 `BFF_PERSISTED_QUERIES`（`file://` 引用部署目录里的文件）。启动时逐条按 schema 校验、算深度与代价（BM03）：不合的条目拒绝（告警日志 `event=bff_query_rejected` 与指标），其余照常，成员照常启动（进外壳时不拖垮别的成员）；完整的校验放进移动入口的构建（本组件的命令 `check-manifest`，有任何一条不合就失败）。没有配置时清单为空，拒绝一切查询。摘要是查询文本的 SHA-256；不认识的摘要答 `PERSISTED_QUERY_NOT_FOUND`（400，domain `infra/bff-mobile`）。只有查询，没有变更（`mutation`）与订阅：清单里出现它们的条目拒绝。不支持运行时登记（APQ 的登记）、不开内省 |
-| BM03 | **上限**（第二道防线）：深度 6；代价 200，按这样算：每个根字段 10，每个对象字段 1，列表字段乘以它的 `limit`，嵌套字段的代价乘以父列表的 `limit`；启动时每个列表按上限 50 计，运行时按实际变量再算一次。别名至多 10。运行时变量里的 `limit` 超过 50（或小于 1）答 `REQUEST_INVALID`，`violations` 指出字段。执行时限用路由的缺省截止 10 秒（SDK），边缘的超时由它推出 |
+| BM02 | **持久化查询**：清单（摘要 → 查询文本）是仍受支持的各个移动客户端版本用到的查询的并集，由移动入口的构建产出，淘汰随客户端版本的支持期；部署配置 `BFF_PERSISTED_QUERIES`：在组件的配置里写 `file://<路径>`，BrickKit 读出文件内容、作为环境变量交给组件（键声明为密钥类型，内容不进生成的部署文件与日志；BrickKit 之外运行时设 `BFF_PERSISTED_QUERIES_FILE` 为路径，由 SDK 读；AI 定，待复核）。单个环境变量的上限约 128 KiB（Linux），是清单大小的上限（未决问题）。启动时逐条按 schema 校验、算深度与代价（BM03）：不合的条目拒绝（告警日志 `event=bff_query_rejected` 与指标），其余照常，成员照常启动（进外壳时不拖垮别的成员）；完整的校验放进移动入口的构建（本组件的命令 `check-manifest`，有任何一条不合就失败）。没有配置时清单为空，拒绝一切查询。摘要是查询文本的 SHA-256；不认识的摘要答 `PERSISTED_QUERY_NOT_FOUND`（400，domain `infra/bff-mobile`）。只有查询，没有变更（`mutation`）与订阅：清单里出现它们的条目拒绝。不支持运行时登记（APQ 的登记）、不开内省 |
+| BM03 | **上限**（第二道防线）：深度 6（根字段是第 1 层，片段按展开计）；代价 200，按下游调用计：每个读属主的字段（根字段与 `ProductDetail.stock`）10，其他带子选择的字段 1，叶子不计（P4 改：原来的“列表乘以 `limit`”让一个待办页单独就超过 200；首批没有按条目调属主的字段，答复的大小由 `limit` 至多 50 管住；AI 定，待复核）。别名至多 10。清单里字面的 `limit` 不在 1–50 的条目拒绝；运行时作为 `limit` 传入的变量超过 50（或小于 1）答 `REQUEST_INVALID`，`violations` 指出变量。执行时限用路由的缺省截止 10 秒（SDK），边缘的超时由它推出 |
 | BM04 | **读路径**：每个根字段经被聚合组件的**用户面**取，出站调用转发调用者的凭据（SDK 的 `ForwardUser`）；属主按调用者的授权、数据范围与字段控制答，本组件把答复按 schema 映射。**从不经系统面取用户看的数据**（系统面不按调用者过滤）。“我的”是筛选不是授权：订单与商机传 `owner_id` 为调用者的主体身份（来自已核验的凭据，不来自变量），属主照常按授权判断；销售订单的列表不带 `history` 时属主只列未结束与近期的单据，页面照此说明。下游的 `next_cursor` 对本组件不透明，原样透传给客户端、下一页原样带回，由属主核对（属主仍按调用者的凭据判断，换一个游标也不会越权）；`limit` 每次显式传给下游（下游上限 200，本组件 50）。属主答的 `_masked`（P8.31）透传为对象的 `masked: [String!]!`，前端据此分“没有值”与“无权看”；多语言的整组译文、列表的完整度提示原样透传 |
 | BM05 | **一次请求内的复用**：同一请求里，可用量要的仓库目录只取一次（调用者看得到的全部仓库，按页取全，至多 5 页、1000 个；再多时可用量里取不到名称的仓库名称为空并带 `DEPENDENCY_UNAVAILABLE` 的缺件错误），跨请求不缓存任何东西。可用量只在产品详情上（`product(id)` 的类型 `ProductDetail` 有 `stock`（库存可用量；产品自己的 `availability` 是按法人能不能卖、能不能买，不是这个），列表的类型 `Product` 没有），结构上就没有按产品逐个调库存的扇出。首批没有“按 id 补名称”的字段（订单、商机自带客户快照），不引入批量加载器（未决问题） |
-| BM06 | **时限与缺件**：查询的根字段并行执行；每次下游尝试的时限是 `min(3 秒, 剩余 − 50 毫秒)`，GET 在剩余时间内至多试 3 次（SDK 的出站调用）。一个根字段失败，只有它为空，`errors` 里带 `path` 与 `extensions`：`reason`、`domain`、`metadata`（缺的组件在 `metadata.dependency`，由 SDK 填）、`trace_id`，可重试的另带 `retry_after`（秒）；不带属主的 `detail`（写给开发者，可能带内部的名字）。读路径会见到的原因：属主的拒绝（`NOT_FOUND`、`PERMISSION_DENIED`、`REQUEST_INVALID` 等）；取不到（`DEPENDENCY_UNAVAILABLE`、`DEADLINE_EXCEEDED`）；没发出去（`OUTBOUND_LIMIT`、`CIRCUIT_OPEN`、`DEADLINE_BUDGET_EXHAUSTED`）；下游不认转发的凭据（任何 401，含 `TOKEN_STALE`，SDK 改写成 `AUTHORIZATION_UNPROVABLE`，可重试）；下游没有这个能力（`CAPABILITY_UNSUPPORTED`）。嵌套的非关键字段（产品的可用量）失败时，产品照常返回、可用量为空并带错误。前端据此区分“没有”与“暂时取不到” |
+| BM06 | **时限与缺件**：查询的根字段并行执行；每次下游尝试的时限是 `min(3 秒, 剩余 − 50 毫秒)`，GET 在剩余时间内至多试 3 次（SDK 的出站调用）。一个根字段失败，只有它为空，`errors` 里带 `path` 与 `extensions`：`reason`、`domain`、`metadata`（缺的组件在 `metadata.dependency`，由 SDK 填）、`trace_id`，可重试的（目录里“可重试”或“先查询再重试”的原因：本组件只读，查询就是重试）另带 `retry_after`（秒，属主或 SDK 给了就用它，否则 1）；不带属主的 `detail`（写给开发者，可能带内部的名字）。读路径会见到的原因：属主的拒绝（`NOT_FOUND`、`PERMISSION_DENIED`、`REQUEST_INVALID` 等）；取不到（`DEPENDENCY_UNAVAILABLE`、`DEADLINE_EXCEEDED`）；没发出去（`OUTBOUND_LIMIT`、`CIRCUIT_OPEN`、`DEADLINE_BUDGET_EXHAUSTED`）；下游不认转发的凭据（任何 401，含 `TOKEN_STALE`，SDK 改写成 `AUTHORIZATION_UNPROVABLE`，可重试）；下游没有这个能力（`CAPABILITY_UNSUPPORTED`）。嵌套的非关键字段（产品的可用量）失败时，产品照常返回、可用量为空并带错误。前端据此区分“没有”与“暂时取不到” |
 | BM07 | **按装配裁剪**：被聚合的组件都是可选依赖；没装的组件，它的根字段与嵌套字段在启动时不注册（schema 里就没有）。清单里用到没注册字段的条目按 BM02 拒绝；移动入口按客户基线构建时就该避开它们 |
 | BM08 | **gqlgen 的用法**：只用它的执行器（`executor`），在处理函数里执行一个操作、拿回响应的 JSON，用 SDK 的 `Bytes` 答出；不挂它的 HTTP 处理器，不开传输、内省、APQ 缓存。schema 从 `contract/schema.graphql` 生成代码 |
 | BM09 | **错误不泄露细节**：属主的问题详情只取 `reason`、`domain`、`metadata`；本组件自己的失败只写日志，客户端看到 `INTERNAL` 与追踪编号 |
@@ -88,7 +88,7 @@
 
 ## 实现状态
 
-（P1：设计。）
+3.0.0：BM01–BM11 全部实现（C11 的 P4）。代码地图在 `AGENTS.md`；集成测试对各属主的替身（`itest/`），真机的格与 L3 在装配项目。schema 的根字段可以为空（P3 改：非空的根字段失败会让整个 `data` 为空，违背 BM06）。
 
 ## 部署与替换
 
@@ -108,13 +108,13 @@
 - 一个下游超时，其余部分照常返回，超时的那部分为空并标明 `DEADLINE_EXCEEDED` 与组件（边界卡）。
 - 移动端用户在待办里打开一张采购申请：条目与详情带动作入口 `/api/purchase/flow/tasks/{id}/decisions`，前端经边缘直接发决定，任务离开待办，下一次查询不再列出。
 - 没有入口操作的账号：答 403，什么也不调。
-- 没装 `crm/opportunity` 的部署：schema 里没有商机的字段，用到它的持久化查询让启动失败。
+- 没装 `crm/opportunity` 的部署：schema 里没有商机的字段，用到它的持久化查询在启动时被拒绝（告警），成员照常启动，这些查询答 `PERSISTED_QUERY_NOT_FOUND`。
 
 ## 未决问题
 
 - **单据详情**：首批的任务详情只有投影的摘要；要看整张单据时，按任务类型去属主取（要一张“任务类型 → 单据的用户面路径”的表，或流程内核在投影里给出单据的读取入口）。
 - **按 id 补名称**：以后有列表要补别的组件的名称时，属主要有用户面的批量读取（例如 `GET /api/product/products?ids=`，一次的个数有上限），本组件经每请求新建的批量加载器取。
 - **原生应用经边缘**：边缘剥掉 `Authorization`、只认会话 Cookie（P11.1）；原生应用的令牌怎样进来（按来源区分、另设入口）是协议 20 与边缘的事。
-- **清单的挂载**：`file://` 引用部署目录里的非密钥文件，BrickKit 怎样把它挂进单跑与外壳的容器，待核实。
+- **清单的大小**：现在经一个环境变量传入（BM02），上限约 128 KiB；清单接近它时，要 SDK 支持组件自己的“按文件挂载”的键（BrickKit 的 `mount: file`，现在 SDK 只给服务证书），回源头补。
 - **按代价限流**：每个调用者单位时间的代价额度，放边缘还是本组件。
 - **2.x 的权限键**：注册表里有旧版的 `infra.bff-mobile.*` 键；新设计只用一个入口操作 `infra.bff_mobile.entry.use`，旧键不复用、不改名；`be-ops` 汇总注册表时标为废弃。

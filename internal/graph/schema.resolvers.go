@@ -7,69 +7,76 @@ package graph
 
 import (
 	"context"
-	"fmt"
+	"github.com/99designs/gqlgen/graphql"
 
 	"github.com/brickKit/infra-bff-mobile/v3/internal/model"
 )
 
 // Stock is the resolver for the stock field.
 func (r *productDetailResolver) Stock(ctx context.Context, obj *model.ProductDetail) ([]model.StockPosition, error) {
-	panic(fmt.Errorf("not implemented: Stock - stock"))
+	stock, warning, err := r.Reads.Stock(ctx, obj.ID)
+	if err != nil {
+		return nil, err
+	}
+	if warning != nil { // the positions stand, unnamed (BM05)
+		graphql.AddError(ctx, warning)
+	}
+	return stock, nil
 }
 
 // MyTasks is the resolver for the myTasks field.
 func (r *queryResolver) MyTasks(ctx context.Context, taskType *string, cursor *string, limit *int) (*model.TaskPage, error) {
-	panic(fmt.Errorf("not implemented: MyTasks - myTasks"))
+	return r.Reads.MyTasks(ctx, taskType, cursor, limit)
 }
 
 // Task is the resolver for the task field.
 func (r *queryResolver) Task(ctx context.Context, component string, id string) (*model.WorklistTask, error) {
-	panic(fmt.Errorf("not implemented: Task - task"))
+	return r.Reads.Task(ctx, component, id)
 }
 
 // MyNotifications is the resolver for the myNotifications field.
 func (r *queryResolver) MyNotifications(ctx context.Context, unread *bool, cursor *string, limit *int) (*model.NotificationPage, error) {
-	panic(fmt.Errorf("not implemented: MyNotifications - myNotifications"))
+	return r.Reads.MyNotifications(ctx, unread, cursor, limit)
 }
 
 // Products is the resolver for the products field.
 func (r *queryResolver) Products(ctx context.Context, q *string, cursor *string, limit *int) (*model.ProductPage, error) {
-	panic(fmt.Errorf("not implemented: Products - products"))
+	return r.Reads.Products(ctx, q, cursor, limit)
 }
 
 // Product is the resolver for the product field.
 func (r *queryResolver) Product(ctx context.Context, id string) (*model.ProductDetail, error) {
-	panic(fmt.Errorf("not implemented: Product - product"))
+	return r.Reads.Product(ctx, id)
 }
 
 // Customers is the resolver for the customers field.
 func (r *queryResolver) Customers(ctx context.Context, legalEntityID *string, q *string, cursor *string, limit *int) (*model.PartnerPage, error) {
-	panic(fmt.Errorf("not implemented: Customers - customers"))
+	return r.Reads.Customers(ctx, legalEntityID, q, cursor, limit)
 }
 
 // Customer is the resolver for the customer field.
 func (r *queryResolver) Customer(ctx context.Context, id string) (*model.Partner, error) {
-	panic(fmt.Errorf("not implemented: Customer - customer"))
+	return r.Reads.Customer(ctx, id)
 }
 
 // MyOrders is the resolver for the myOrders field.
 func (r *queryResolver) MyOrders(ctx context.Context, state *string, cursor *string, limit *int) (*model.OrderPage, error) {
-	panic(fmt.Errorf("not implemented: MyOrders - myOrders"))
+	return r.Reads.MyOrders(ctx, state, cursor, limit)
 }
 
 // Order is the resolver for the order field.
 func (r *queryResolver) Order(ctx context.Context, id string) (*model.Order, error) {
-	panic(fmt.Errorf("not implemented: Order - order"))
+	return r.Reads.Order(ctx, id)
 }
 
 // MyOpportunities is the resolver for the myOpportunities field.
 func (r *queryResolver) MyOpportunities(ctx context.Context, stage *string, cursor *string, limit *int) (*model.OpportunityPage, error) {
-	panic(fmt.Errorf("not implemented: MyOpportunities - myOpportunities"))
+	return r.Reads.MyOpportunities(ctx, stage, cursor, limit)
 }
 
 // Opportunity is the resolver for the opportunity field.
 func (r *queryResolver) Opportunity(ctx context.Context, id string) (*model.Opportunity, error) {
-	panic(fmt.Errorf("not implemented: Opportunity - opportunity"))
+	return r.Reads.Opportunity(ctx, id)
 }
 
 // ProductDetail returns ProductDetailResolver implementation.

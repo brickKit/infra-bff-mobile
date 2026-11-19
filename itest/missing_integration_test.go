@@ -74,7 +74,7 @@ func (fx *fixture) missing() {
 
 	// the owner does not take the forwarded credential: cannot confirm now, retryable, never a 401 to the client
 	fx.owners[core.Sales].set(func(w http.ResponseWriter, r *http.Request) bool {
-		problem(w, 401, "", "TOKEN_STALE")
+		problem(w, 401, "be", "TOKEN_STALE")
 		return true
 	})
 	a = fx.carol.query("orders", nil)
@@ -89,7 +89,7 @@ func (fx *fixture) missing() {
 	// a nested field fails: the product as usual, its stock null and named
 	fx.owners[core.Inventory].set(func(w http.ResponseWriter, r *http.Request) bool {
 		if strings.HasPrefix(r.URL.Path, "/api/inventory/positions") {
-			problem(w, 503, "", "DEPENDENCY_UNAVAILABLE")
+			problem(w, 503, "be", "DEPENDENCY_UNAVAILABLE")
 			return true
 		}
 		return false
@@ -107,7 +107,7 @@ func (fx *fixture) missing() {
 	// the catalog fails: the positions as usual, unnamed, with the missing part named
 	fx.owners[core.Inventory].set(func(w http.ResponseWriter, r *http.Request) bool {
 		if strings.HasPrefix(r.URL.Path, "/api/inventory/warehouses") {
-			problem(w, 503, "", "DEPENDENCY_UNAVAILABLE")
+			problem(w, 503, "be", "DEPENDENCY_UNAVAILABLE")
 			return true
 		}
 		return false

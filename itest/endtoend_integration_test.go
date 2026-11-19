@@ -126,9 +126,9 @@ var queries = map[string]string{
       summary { title fields { key label value } } action { component path } } nextCursor }
   myNotifications(unread: true, limit: 5) { items { id sender category title link template params createdAt readAt withdrawn } unread nextCursor }
 }`,
-	"tasks":   `query Tasks($cursor: String, $limit: Int) { myTasks(cursor: $cursor, limit: $limit) { items { id } nextCursor } }`,
-	"task":    `query Task($component: String!, $id: ID!) { task(component: $component, id: $id) { id component action { component path } summary { title } } }`,
-	"product": `query Product($id: ID!) { product(id: $id) { id code name names baseUnit state masked stock { warehouse { id code name } onHand reserved available } } }`,
+	"tasks":       `query Tasks($cursor: String, $limit: Int) { myTasks(cursor: $cursor, limit: $limit) { items { id } nextCursor } }`,
+	"task":        `query Task($component: String!, $id: ID!) { task(component: $component, id: $id) { id component action { component path } summary { title } } }`,
+	"product":     `query Product($id: ID!) { product(id: $id) { id code name names baseUnit state masked stock { warehouse { id code name } onHand reserved available } } }`,
 	"productBare": `query ProductBare($id: ID!) { product(id: $id) { id code name } }`,
 	"twoProducts": `query TwoProducts($a: ID!, $b: ID!) { a: product(id: $a) { id stock { warehouse { name } available } }
   b: product(id: $b) { id stock { warehouse { name } available } } }`,
@@ -344,8 +344,12 @@ type lockedBuffer struct {
 	b  bytes.Buffer
 }
 
-func (l *lockedBuffer) Write(p []byte) (int, error) { l.mu.Lock(); defer l.mu.Unlock(); return l.b.Write(p) }
-func (l *lockedBuffer) String() string             { l.mu.Lock(); defer l.mu.Unlock(); return l.b.String() }
+func (l *lockedBuffer) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+func (l *lockedBuffer) String() string { l.mu.Lock(); defer l.mu.Unlock(); return l.b.String() }
 
 func portFree(t *testing.T, ports ...string) {
 	for _, p := range ports {

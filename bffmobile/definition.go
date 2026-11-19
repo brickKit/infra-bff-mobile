@@ -20,8 +20,9 @@ func Keys() []config.Key {
 
 // Own describes the own keys for the manifest's configSchema.
 var Own = map[string]string{
-	core.KeyQueries: "the persisted queries (BM02): a JSON object of query text by its SHA-256 (lower-case hex), " +
-		"given as BFF_PERSISTED_QUERIES_FILE (file://); unset: every query is refused",
+	core.KeyQueries: "the persisted queries (BM02): a JSON object of query text by its SHA-256 (lower-case hex); " +
+		"write file://<path> in the component's config (BrickKit passes the content), or set " +
+		"BFF_PERSISTED_QUERIES_FILE outside BrickKit; unset: every query is refused",
 }
 
 // Definition is the component as the launcher and the shells take it: no database, no bus, no system surface.
