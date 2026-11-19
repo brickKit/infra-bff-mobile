@@ -12,6 +12,7 @@
 | [`internal/`](internal/AGENTS.md) | 模块：下面各一个包；模块之间的依赖表在它的 `AGENTS.md` |
 | [`itest/`](itest/AGENTS.md) | 集成测试（对属主的替身），按流程分文件；它的 `AGENTS.md` 是测试索引 |
 | `main.go` | 单跑（`serve`）与构建时的清单校验 `check-manifest <文件>` |
+| `cmd/seed/` | 种子（`make seed`）：角色“移动入口”给种子用户、审批人与销售；看到什么由各属主的种子与授予决定 |
 | `contract/` | 本组件发布的契约：`schema.graphql`（生成代码的来源）、`openapi.yaml`（一条路由） |
 | `gqlgen.yml` | 由 schema 生成执行器与模型（`make generate`） |
 | `docs/design.md` | 设计（BM01–BM11） |

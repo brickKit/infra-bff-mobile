@@ -1,4 +1,4 @@
-.PHONY: test test-integration lint generate
+.PHONY: test test-integration lint generate seed
 
 test:  ## unit tests: the manifest, the OpenAPI document and the route, merge safety, the persisted query checks
 	go vet ./... && go test ./...
@@ -11,3 +11,6 @@ lint:
 
 generate:  ## the executor and the models from contract/schema.graphql (gqlgen; resolvers kept)
 	go run github.com/99designs/gqlgen@v0.17.98 generate
+
+seed:  ## the mobile entry's grants (SEED_PASSWORD; see cmd/seed); what each account sees is the owners' seeds
+	go run ./cmd/seed

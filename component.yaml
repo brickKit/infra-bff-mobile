@@ -4,7 +4,7 @@ kind: Component
 metadata:
   id: infra/bff-mobile
   name: Mobile aggregation
-  version: 3.0.0
+  version: 3.0.1
   description: "The mobile entry's read-only aggregation (protocol 20, D68's exception): page-shaped GraphQL queries by persisted query only, each root field read from its owner's user surface with the caller's own credential; an owner that is slow or refuses leaves only its field empty and named, an owner not installed is not in the schema; no database, no events, no writes"
   repository: https://github.com/brickKit/infra-bff-mobile
 

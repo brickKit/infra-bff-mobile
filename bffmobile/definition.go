@@ -11,7 +11,7 @@ import (
 )
 
 // Version is the version this code is.
-const Version = "3.0.0"
+const Version = "3.0.1"
 
 // Keys are the component's own configuration keys.
 func Keys() []config.Key {
