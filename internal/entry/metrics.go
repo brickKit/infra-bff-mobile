@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/brickKit/be-sdk-go/v3/errs"
 	"github.com/brickKit/be-sdk-go/v3/runtime"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -57,14 +58,18 @@ func (e *Entry) rootField(ctx context.Context, next graphql.RootResolver) graphq
 	began := time.Now()
 	out := next(ctx)
 	e.m.seconds.WithLabelValues(field).Observe(time.Since(began).Seconds())
+	// the root field's own failure only (a nested field's, the stock, is the field's partial answer); the outcome is
+	// a platform reason or "owner" for an owner's own reason, so the label's values stay bounded
 	outcome := "ok"
 	for _, g := range graphql.GetErrors(ctx) {
-		if len(g.Path) > 0 && g.Path[0] == ast.PathName(alias) {
-			if r, ok := g.Extensions["reason"].(string); ok {
-				outcome = r
-			}
-			break
+		if len(g.Path) != 1 || g.Path[0] != ast.PathName(alias) {
+			continue
 		}
+		outcome = "owner"
+		if r, _ := g.Extensions["reason"].(string); g.Extensions["domain"] == errs.PlatformDomain {
+			outcome = r
+		}
+		break
 	}
 	e.m.fields.WithLabelValues(field, outcome).Inc()
 	return out

@@ -48,6 +48,7 @@ func (fx *fixture) entry() {
 		{"variables": map[string]any{}},
 		{"extensions": map[string]any{"persistedQuery": map[string]any{"version": 2, "sha256Hash": tasks}}},
 		{"extensions": map[string]any{"persistedQuery": map[string]any{"version": 1, "sha256Hash": "ABC"}}},
+		{"extensions": map[string]any{"persistedQuery": map[string]any{"version": 1, "sha256Hash": tasks}, "more": 1}},
 	} {
 		a = fx.carol.post(body)
 		assert.Equal(t, 400, a.Status, "body %d: %s", i, a.Raw)

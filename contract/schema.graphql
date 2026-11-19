@@ -5,6 +5,9 @@
 # deployment does not have is not registered (BM07). Root fields are nullable: one owner failing leaves only its
 # field null (BM06). A failed field is null with a GraphQL error whose extensions are
 # be-protocol P3.3's {reason, domain, metadata, trace_id} (and retry_after for a retryable one) (BM06).
+# The owners' records (products, partners, orders, opportunities, stock) have every field nullable: an owner returns
+# null for a field it withholds and names it in masked (P8.31, as the GraphQL field name), so the front end tells "no
+# value" from "not yours to see" (BM04). The worklist's and the notifications' records have no maskable field.
 # Amounts and quantities are decimal strings (protocol 14), never floats. Lists are owner cursor pages: pass
 # nextCursor back as cursor; limit is 1..50 (BM03).
 
@@ -117,39 +120,42 @@ type ProductPage {
 
 "A product in a list: no stock here (one call per product would fan out; BM05)."
 type Product {
-  id: ID!
-  code: String!
-  kind: String!
-  name: String!
+  id: ID
+  code: String
+  kind: String
+  name: String
   names: Translations
-  baseUnit: String!
-  state: String!
-  "Fields the owner withheld from me (P8.31): null there means not visible, not empty."
+  baseUnit: String
+  state: String
+  "Fields the owner withheld from me (P8.31), as the GraphQL field names: null there means not visible, not empty."
   masked: [String!]!
 }
 
 type ProductDetail {
-  id: ID!
-  code: String!
-  kind: String!
-  name: String!
+  id: ID
+  code: String
+  kind: String
+  name: String
   names: Translations
-  baseUnit: String!
-  state: String!
+  baseUnit: String
+  state: String
   masked: [String!]!
   "On hand, reserved and available in each warehouse I may see (erp/inventory)."
   stock: [StockPosition!]
 }
 
 type StockPosition {
+  "Always present; its fields are null when the warehouse could not be named (BM05)."
   warehouse: Warehouse!
-  onHand: Decimal!
-  reserved: Decimal!
-  available: Decimal!
+  "erp/inventory's fields withheld from me (P8.31), as the GraphQL field names."
+  masked: [String!]!
+  onHand: Decimal
+  reserved: Decimal
+  available: Decimal
 }
 
 type Warehouse {
-  id: ID!
+  id: ID
   code: String
   "Null when the warehouse could not be named this time (BM05)."
   name: String
@@ -163,13 +169,13 @@ type PartnerPage {
 }
 
 type Partner {
-  id: ID!
-  kind: String!
-  name: String!
+  id: ID
+  kind: String
+  name: String
   names: Translations
   country: String
   taxId: String
-  state: String!
+  state: String
   masked: [String!]!
 }
 
@@ -181,15 +187,15 @@ type OrderPage {
 }
 
 type Order {
-  id: ID!
+  id: ID
   number: String
-  legalEntityId: ID!
-  customer: CustomerRef!
-  currency: String!
-  state: String!
+  legalEntityId: ID
+  customer: CustomerRef
+  currency: String
+  state: String
   businessDate: String
   total: Decimal
-  updatedAt: DateTime!
+  updatedAt: DateTime
   masked: [String!]!
 }
 
@@ -207,15 +213,15 @@ type OpportunityPage {
 }
 
 type Opportunity {
-  id: ID!
+  id: ID
   number: String
-  name: String!
-  customer: CustomerRef!
-  currency: String!
+  name: String
+  customer: CustomerRef
+  currency: String
   amount: Decimal
-  stage: String!
+  stage: String
   probability: Int
   expectedCloseDate: String
-  updatedAt: DateTime!
+  updatedAt: DateTime
   masked: [String!]!
 }

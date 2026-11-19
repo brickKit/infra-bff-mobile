@@ -27,18 +27,22 @@ paths:
                 extensions:
                   type: object
                   required: [persistedQuery]
+                  additionalProperties: false
                   properties:
                     persistedQuery:
                       type: object
                       required: [version, sha256Hash]
+                      additionalProperties: false
                       properties:
                         version: {const: 1}
                         sha256Hash: {type: string, pattern: '^[0-9a-f]{64}$'}
       responses:
         '200':
           description: >-
-            the GraphQL answer: data, and errors for the fields that failed (path and extensions: reason, domain,
-            metadata with the missing dependency, trace_id, retry_after when retryable)
+            the GraphQL answer: data, and errors for the fields that failed (path and extensions: reason, domain and
+            metadata as the owner or the SDK gave them, metadata.dependency naming an owner that could not be read,
+            trace_id, retry_after for a retryable platform reason); a field whose argument is not a record id fails
+            with REQUEST_INVALID
           content:
             application/json:
               schema:
@@ -63,8 +67,14 @@ paths:
                             retry_after: {type: integer}
         '400':
           description: >-
-            REQUEST_INVALID (the body, a limit over 50, a query over the depth, cost or alias limits) or
-            PERSISTED_QUERY_NOT_FOUND (domain infra/bff-mobile: the hash is not in the deployment's list)
+            REQUEST_INVALID (the body, a member it does not know, the variables, a limit outside 1..50) or
+            PERSISTED_QUERY_NOT_FOUND (domain infra/bff-mobile: the hash is not in the deployment's list, which also
+            holds no entry over the depth, cost or alias limits: those were refused at start)
+          content:
+            application/problem+json:
+              schema: {$ref: '#/components/schemas/Problem'}
+        '401':
+          description: UNAUTHENTICATED (no credential, or one the SDK's admission does not take)
           content:
             application/problem+json:
               schema: {$ref: '#/components/schemas/Problem'}

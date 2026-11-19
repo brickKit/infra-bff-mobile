@@ -53,7 +53,9 @@ func New(rt *runtime.Runtime) (*Entry, error) {
 	return e, nil
 }
 
-// load reads the persisted queries (BM02): a missing or unreadable list refuses every query; the member starts.
+// load reads the persisted queries (BM02): no list, or one that is not a JSON object, refuses every query and the
+// member starts; a BFF_PERSISTED_QUERIES_FILE that cannot be read is a configuration problem the SDK stops the start
+// on (a shell too), like any other.
 func load(rt *runtime.Runtime, b *core.Base, m *metrics) *queries.List {
 	empty, _, _ := queries.Load([]byte("{}"), b.Has)
 	secret := rt.Config.Secret(core.KeyQueries)

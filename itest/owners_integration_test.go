@@ -29,7 +29,7 @@ const (
 func ownerAnswer(owner string, w http.ResponseWriter, r *http.Request) {
 	p, q := r.URL.Path, r.URL.Query()
 	if r.Method != http.MethodGet {
-		problem(w, 405, owner, "REQUEST_INVALID")
+		problem(w, 405, "be", "REQUEST_INVALID")
 		return
 	}
 	switch {
@@ -42,7 +42,7 @@ func ownerAnswer(owner string, w http.ResponseWriter, r *http.Request) {
 	case owner == core.Workflow && p == "/api/workflow/tasks/"+purchaseTsk && q.Get("component") == "erp/purchase":
 		writeJSON(w, 200, worklistItem())
 	case owner == core.Workflow && strings.HasPrefix(p, "/api/workflow/tasks/"):
-		problem(w, 404, "infra/workflow", "NOT_FOUND")
+		problem(w, 404, "be", "NOT_FOUND") // errs.New: a platform reason, domain be
 	case owner == core.Notification && p == "/api/notification/messages":
 		writeJSON(w, 200, map[string]any{"messages": []any{map[string]any{"id": message1, "sender": "erp/purchase",
 			"category": "approval_task", "title": "Order P-1 waits for you", "link": "/purchase/orders/1",
@@ -53,7 +53,12 @@ func ownerAnswer(owner string, w http.ResponseWriter, r *http.Request) {
 	case owner == core.Product && (p == "/api/product/products/"+product1 || p == "/api/product/products/"+product2):
 		writeJSON(w, 200, productRecord(strings.TrimPrefix(p, "/api/product/products/")))
 	case owner == core.Product && strings.HasPrefix(p, "/api/product/products/"):
-		problem(w, 404, "mdm/product", "NOT_FOUND")
+		problem(w, 404, "be", "NOT_FOUND")
+	case owner == core.Inventory && p == "/api/inventory/positions" && q.Get("product_id") == product2 && q.Get("cursor") == "":
+		// two pages: the aggregation reads the next one
+		writeJSON(w, 200, map[string]any{"positions": []any{position(product2, wh1, "5", "1", "4")}, "next_cursor": "pos2"})
+	case owner == core.Inventory && p == "/api/inventory/positions" && q.Get("product_id") == product2:
+		writeJSON(w, 200, map[string]any{"positions": []any{position(product2, wh2, "2", "0", "2")}, "next_cursor": ""})
 	case owner == core.Inventory && p == "/api/inventory/positions":
 		writeJSON(w, 200, map[string]any{"positions": []any{
 			position(q.Get("product_id"), wh1, "5", "1", "4"), position(q.Get("product_id"), wh2, "2", "0", "2")},
@@ -68,13 +73,16 @@ func ownerAnswer(owner string, w http.ResponseWriter, r *http.Request) {
 	case owner == core.Sales && p == "/api/sales/orders":
 		writeJSON(w, 200, map[string]any{"orders": []any{orderRecord()}, "next_cursor": "o2"})
 	case owner == core.Sales && p == "/api/sales/orders/"+order1:
-		writeJSON(w, 200, orderRecord())
+		// an archived order read through the SDK's Mask (P8.31): the customer and the totals withheld
+		o := orderRecord()
+		o["customer"], o["totals"], o["_masked"] = nil, nil, []any{"customer", "totals"}
+		writeJSON(w, 200, o)
 	case owner == core.Opportunity && p == "/api/opportunity/opportunities":
 		writeJSON(w, 200, map[string]any{"opportunities": []any{oppRecord()}, "next_cursor": ""})
 	case owner == core.Opportunity && p == "/api/opportunity/opportunities/"+opp1:
 		writeJSON(w, 200, oppRecord())
 	default:
-		problem(w, 404, owner, "NOT_FOUND")
+		problem(w, 404, "be", "NOT_FOUND")
 	}
 }
 
@@ -87,15 +95,15 @@ func worklistItem() map[string]any {
 		"summary": map[string]any{"title": "Purchase order P-1", "fields": []any{
 			map[string]any{"key": "supplier", "label": "Supplier", "value": "ACME"},
 			map[string]any{"key": "gross", "label": "Total", "value": "1200.00 CNY"}}},
-		"candidates": []any{carol}, "state": "open", "paused_reason": nil, "decision": nil, "due_at": at,
+		"candidates": []any{carol}, "state": "pending", "paused_reason": nil, "decision": nil, "due_at": at,
 		"instance": map[string]any{"id": opp1, "state": "running", "step": 1}, "legal_entity_id": le1, "version": 3,
 		"updated_at": at},
 		"action": map[string]any{"component": "erp/purchase", "path": actionURL}, "stale": true, "received_at": at}
 }
 
 func productRecord(id string) map[string]any {
-	return map[string]any{"id": id, "code": "BOLT-" + id[len(id)-1:], "kind": "goods", "stocked": true, "name": "Bolt",
-		"names": nil, "_masked": []any{"names"}, "category_id": nil, "base_unit": "pcs", "tracking": "none",
+	return map[string]any{"id": id, "code": "BOLT-" + id[len(id)-1:], "kind": "stock", "stocked": true, "name": "Bolt",
+		"names": map[string]any{"en": "Bolt"}, "category_id": nil, "base_unit": "pcs", "tracking": "none",
 		"has_movements": true, "conversions": []any{}, "availability": []any{}, "state": "active", "version": 2,
 		"updated_at": at}
 }

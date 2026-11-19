@@ -5,9 +5,13 @@ package reads
 
 import (
 	"net/url"
+	"regexp"
 	"strconv"
+	"strings"
 
 	core "github.com/brickKit/infra-bff-mobile/v3/internal/core"
+
+	"github.com/brickKit/be-sdk-go/v3/errs"
 )
 
 // Reads is the read side over the owners the deployment has.
@@ -38,6 +42,18 @@ func page(cursor *string, limit *int, filters ...string) url.Values {
 	return q
 }
 
+var uuidForm = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+// id refuses an argument that is not a record id before the owner is asked: a path segment that is not an id may
+// name another route of the owner (the worklist's /tasks/done).
+func id(name, v string) error {
+	if uuidForm.MatchString(v) {
+		return nil
+	}
+	return errs.New(errs.ReasonRequestInvalid, "not a record id").WithViolations(
+		errs.Violation{Field: name, Reason: "invalid", Description: "a lower-case UUID"})
+}
+
 func str(p *string) string {
 	if p == nil {
 		return ""
@@ -45,10 +61,23 @@ func str(p *string) string {
 	return *p
 }
 
-// masked is an owner's _masked (P8.31), never null.
-func masked(m []string) []string {
-	if m == nil {
-		return []string{}
+// masked is an owner's _masked (P8.31) as the GraphQL field names, never null: snake_case becomes lowerCamelCase,
+// and a field whose GraphQL name differs is renamed (totals: total). The owner's null for a withheld field passes
+// through the record's pointer fields as it is.
+func masked(m []string, renames map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for _, f := range m {
+		if r, ok := renames[f]; ok {
+			out = append(out, r)
+			continue
+		}
+		parts := strings.Split(f, "_")
+		for i := 1; i < len(parts); i++ {
+			if parts[i] != "" {
+				parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
+			}
+		}
+		out = append(out, strings.Join(parts, ""))
 	}
-	return m
+	return out
 }

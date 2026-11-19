@@ -30,8 +30,9 @@ func NewBase(rt *runtime.Runtime) *Base {
 // Has says whether the deployment has an owner.
 func (b *Base) Has(owner string) bool { _, ok := b.clients[owner]; return ok }
 
-// Get reads an owner's user surface with the caller's own credential (BM04) and decodes the answer into out. A
-// failure names the owner in metadata.dependency (BM06).
+// Get reads an owner's user surface with the caller's own credential (BM04) and decodes the answer into out. Errors
+// are the SDK's as they are (P4.19): an owner's refusal unchanged, and metadata.dependency only on what the SDK names
+// it for (unavailable, out of time, not sent, the credential not taken), so "none" and "not now" stay apart (BM06).
 func (b *Base) Get(ctx context.Context, owner, path string, query url.Values, out any) error {
 	c, ok := b.clients[owner]
 	if !ok { // the field is not registered without its owner; this is a defect
@@ -40,15 +41,7 @@ func (b *Base) Get(ctx context.Context, owner, path string, query url.Values, ou
 	if len(query) > 0 {
 		path += "?" + query.Encode()
 	}
-	err := c.Do(ctx, calls.Request{Method: "GET", Path: path, ForwardUser: true}, out)
-	if err == nil {
-		return nil
-	}
-	e := errs.From(err)
-	if e.Metadata["dependency"] == "" {
-		e = e.With("dependency", owner)
-	}
-	return e
+	return c.Do(ctx, calls.Request{Method: "GET", Path: path, ForwardUser: true}, out)
 }
 
 // Principal is the verified caller: "mine" is a filter by it, never a variable (BM04).

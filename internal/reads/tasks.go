@@ -61,9 +61,12 @@ func (r *Reads) MyTasks(ctx context.Context, taskType, cursor *string, limit *in
 }
 
 // Task is one task by its component and id (infra/workflow GET /api/workflow/tasks/{id}?component=).
-func (r *Reads) Task(ctx context.Context, component, id string) (*model.WorklistTask, error) {
+func (r *Reads) Task(ctx context.Context, component, recordID string) (*model.WorklistTask, error) {
+	if err := id("id", recordID); err != nil {
+		return nil, err
+	}
 	var out worklistItem
-	if err := r.b.Get(ctx, core.Workflow, "/api/workflow/tasks/"+url.PathEscape(id),
+	if err := r.b.Get(ctx, core.Workflow, "/api/workflow/tasks/"+url.PathEscape(recordID),
 		url.Values{"component": {component}}, &out); err != nil {
 		return nil, err
 	}

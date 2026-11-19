@@ -45,7 +45,7 @@ func (fx *fixture) reads() {
 	assert.Equal(t, purchaseTsk, task["id"])
 	assert.Equal(t, "erp/purchase", task["component"])
 	assert.Equal(t, "erp.purchase.order.approval", task["taskType"])
-	assert.Equal(t, "open", task["state"])
+	assert.Equal(t, "pending", task["state"])
 	assert.EqualValues(t, 3, task["version"])
 	assert.Equal(t, at, task["dueAt"])
 	assert.Equal(t, true, task["stale"])
@@ -98,8 +98,8 @@ func (fx *fixture) reads() {
 	p := a.Data["products"].(map[string]any)["items"].([]any)[0].(map[string]any)
 	assert.Equal(t, product1, p["id"])
 	assert.Equal(t, "pcs", p["baseUnit"])
-	assert.Nil(t, p["names"])
-	assert.Equal(t, []any{"names"}, p["masked"])
+	assert.Equal(t, map[string]any{"en": "Bolt"}, p["names"])
+	assert.Equal(t, []any{}, p["masked"])
 	assert.Equal(t, "p2", a.Data["products"].(map[string]any)["nextCursor"])
 	got = only(core.Product)
 	require.Len(t, got, 1)
@@ -130,7 +130,7 @@ func (fx *fixture) reads() {
 	}
 	only(core.Product)
 
-	// two products in one request: the catalog once
+	// two products in one request: the catalog once; product2's positions come in two pages, both read
 	a = fx.carol.query("twoProducts", map[string]any{"a": product1, "b": product2})
 	require.Equal(t, 200, a.Status, a.Raw)
 	require.Empty(t, a.Errors, a.Raw)
@@ -141,6 +141,7 @@ func (fx *fixture) reads() {
 		}
 	}
 	assert.Equal(t, 1, catalog, "the warehouse catalog is read once per request")
+	assert.Len(t, a.Data["b"].(map[string]any)["stock"].([]any), 2, "both pages of product2's positions")
 	only(core.Product)
 
 	// a product without its stock asked: inventory is not called
@@ -155,7 +156,7 @@ func (fx *fixture) reads() {
 	require.Empty(t, a.Errors, a.Raw)
 	c := a.Data["customers"].(map[string]any)["items"].([]any)[0].(map[string]any)
 	assert.Equal(t, map[string]any{"zh-CN": "客户一"}, c["names"])
-	assert.Equal(t, []any{"tax_id"}, c["masked"])
+	assert.Equal(t, []any{"taxId"}, c["masked"], "the GraphQL field name")
 	assert.Nil(t, c["taxId"])
 	got = only(core.Partner)
 	require.Len(t, got, 1)
@@ -181,9 +182,15 @@ func (fx *fixture) reads() {
 	require.Len(t, got, 1)
 	assert.Equal(t, carol, query(got[0]).Get("owner_id"))
 	assert.Equal(t, "confirmed", query(got[0]).Get("state"))
+	// a withheld field is null and named by its GraphQL name (P8.31): never a zero value
 	a = fx.carol.query("order", map[string]any{"id": order1})
 	require.Equal(t, 200, a.Status, a.Raw)
-	assert.Equal(t, "113.00", a.Data["order"].(map[string]any)["total"])
+	require.Empty(t, a.Errors, a.Raw)
+	od := a.Data["order"].(map[string]any)
+	assert.Nil(t, od["total"])
+	assert.Nil(t, od["customer"])
+	assert.Equal(t, []any{"customer", "total"}, od["masked"])
+	assert.Equal(t, "SO-1", od["number"])
 	only(core.Sales)
 
 	// my opportunities: owner and stage; a masked amount

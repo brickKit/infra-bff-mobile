@@ -13,6 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// unreachable answers as a proxy in front of an owner that is down: 503 without a protocol body, so the SDK names the
+// owner as the missing part (an owner's own problem body would be its answer, passed on unchanged, P4.19).
+func unreachable(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(503)
+	_, _ = w.Write([]byte("upstream unavailable"))
+}
+
 // missing: an owner that is slow, refuses or is not installed leaves only its own part empty and named (BM06,
 // BM07); the root fields run in parallel.
 func (fx *fixture) missing() {
@@ -58,7 +66,7 @@ func (fx *fixture) missing() {
 	require.NotNil(t, a.Data["myNotifications"], a.Raw)
 	assert.EqualValues(t, 3, a.Data["myNotifications"].(map[string]any)["unread"])
 	ext := extOf(a, "myTasks")
-	assert.Contains(t, []any{"DEADLINE_EXCEEDED", "DEPENDENCY_UNAVAILABLE"}, ext["reason"], a.Raw)
+	assert.Equal(t, "DEADLINE_EXCEEDED", ext["reason"], a.Raw)
 	assert.Equal(t, core.Workflow, dependencyOf(ext))
 	assert.NotNil(t, ext["retry_after"], "a retryable reason says when")
 	fx.forget()
@@ -69,7 +77,8 @@ func (fx *fixture) missing() {
 	assert.Nil(t, a.Data["task"])
 	ext = extOf(a, "task")
 	assert.Equal(t, "NOT_FOUND", ext["reason"])
-	assert.Equal(t, "infra/workflow", ext["domain"])
+	assert.Equal(t, "be", ext["domain"], "the owner's refusal as it answered it (P3.3)")
+	assert.Nil(t, dependencyOf(ext), "a refusal is not a missing part (P4.19)")
 	assert.Nil(t, ext["retry_after"])
 
 	// the owner does not take the forwarded credential: cannot confirm now, retryable, never a 401 to the client
@@ -86,10 +95,25 @@ func (fx *fixture) missing() {
 	assert.NotNil(t, ext["retry_after"])
 	fx.forget()
 
+	// an owner's own reason that happens to share a platform reason's name: passed on as it is, the reason as the
+	// message, no retry_after (only platform reasons are judged by the catalog)
+	fx.owners[core.Sales].set(func(w http.ResponseWriter, r *http.Request) bool {
+		problem(w, 409, "erp/sales", "DEPENDENCY_UNAVAILABLE")
+		return true
+	})
+	a = fx.carol.query("orders", nil)
+	require.Equal(t, 200, a.Status, a.Raw)
+	ext = extOf(a, "myOrders")
+	assert.Equal(t, "erp/sales", ext["domain"])
+	assert.Nil(t, ext["retry_after"], "an owner's own reason is not retried by the catalog")
+	e, _ := a.errorAt("myOrders")
+	assert.Equal(t, "DEPENDENCY_UNAVAILABLE", e.Message)
+	fx.forget()
+
 	// a nested field fails: the product as usual, its stock null and named
 	fx.owners[core.Inventory].set(func(w http.ResponseWriter, r *http.Request) bool {
 		if strings.HasPrefix(r.URL.Path, "/api/inventory/positions") {
-			problem(w, 503, "be", "DEPENDENCY_UNAVAILABLE")
+			unreachable(w)
 			return true
 		}
 		return false
@@ -107,7 +131,7 @@ func (fx *fixture) missing() {
 	// the catalog fails: the positions as usual, unnamed, with the missing part named
 	fx.owners[core.Inventory].set(func(w http.ResponseWriter, r *http.Request) bool {
 		if strings.HasPrefix(r.URL.Path, "/api/inventory/warehouses") {
-			problem(w, 503, "be", "DEPENDENCY_UNAVAILABLE")
+			unreachable(w)
 			return true
 		}
 		return false

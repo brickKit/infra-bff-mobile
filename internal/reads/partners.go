@@ -9,19 +9,19 @@ import (
 )
 
 type partnerRecord struct {
-	ID      string         `json:"id"`
-	Kind    string         `json:"kind"`
-	Name    string         `json:"name"`
+	ID      *string        `json:"id"`
+	Kind    *string        `json:"kind"`
+	Name    *string        `json:"name"`
 	Names   map[string]any `json:"names"`
 	Country *string        `json:"country"`
 	TaxID   *string        `json:"tax_id"`
-	State   string         `json:"state"`
+	State   *string        `json:"state"`
 	Masked  []string       `json:"_masked"`
 }
 
 func (x partnerRecord) model() model.Partner {
 	return model.Partner{ID: x.ID, Kind: x.Kind, Name: x.Name, Names: x.Names, Country: x.Country, TaxID: x.TaxID,
-		State: x.State, Masked: masked(x.Masked)}
+		State: x.State, Masked: masked(x.Masked, nil)}
 }
 
 // Customers lists partners with an active customer role (mdm/partner GET /api/partner/partners?role=customer).
@@ -42,9 +42,12 @@ func (r *Reads) Customers(ctx context.Context, legalEntityID, q, cursor *string,
 }
 
 // Customer is one partner (mdm/partner GET /api/partner/partners/{id}).
-func (r *Reads) Customer(ctx context.Context, id string) (*model.Partner, error) {
+func (r *Reads) Customer(ctx context.Context, recordID string) (*model.Partner, error) {
+	if err := id("id", recordID); err != nil {
+		return nil, err
+	}
 	var x partnerRecord
-	if err := r.b.Get(ctx, core.Partner, "/api/partner/partners/"+url.PathEscape(id), nil, &x); err != nil {
+	if err := r.b.Get(ctx, core.Partner, "/api/partner/partners/"+url.PathEscape(recordID), nil, &x); err != nil {
 		return nil, err
 	}
 	p := x.model()

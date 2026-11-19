@@ -12,8 +12,9 @@ const ID = "infra/bff-mobile"
 // Domain is the domain of the component's own reasons (P3.3).
 const Domain = ID
 
-// KeyQueries is the persisted query list (BM02): a secret key so that the SDK reads it from
-// BFF_PERSISTED_QUERIES_FILE, the file the deployment mounts (the list is not secret; the mount is what it needs).
+// KeyQueries is the persisted query list (BM02): a secret-typed key, so that BrickKit passes the content of a file://
+// value without writing it into the deployment files, and the SDK takes BFF_PERSISTED_QUERIES_FILE outside BrickKit
+// (the list itself is not secret).
 const KeyQueries = "BFF_PERSISTED_QUERIES"
 
 // The entry (BM01): one resource without dimensions and the one operation of its one route.

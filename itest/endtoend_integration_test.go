@@ -5,7 +5,8 @@ package itest
 // The mobile aggregation over its real surface (L2), against stand-ins of the owners it reads: each stand-in is an
 // HTTP server answering the owner's published contract (its contract/openapi.yaml, not its code), recording what it
 // was asked and with which credential, and able to be slow or to refuse. No database and no bus: the component has
-// neither. The member listens on 28500; a second member without crm/opportunity and erp/inventory on 28509.
+// neither. The member listens on 29500; a second member without crm/opportunity and erp/inventory on 29509 (not the
+// registry's 28500, which a local deployment may expose).
 // Run: go test -tags integration ./itest/ (make test-integration); the index of the steps is itest/AGENTS.md.
 
 import (
@@ -37,9 +38,9 @@ import (
 )
 
 const (
-	itPort      = "28500"
+	itPort      = "29500"
 	itBase      = "http://localhost:" + itPort
-	itPortFew   = "28509" // the member of a deployment without crm/opportunity and erp/inventory
+	itPortFew   = "29509" // the member of a deployment without crm/opportunity and erp/inventory
 	itBaseFew   = "http://localhost:" + itPortFew
 	carol       = "0190f3a1-0000-7000-8000-0000000000c3" // uses the entry
 	dave        = "0190f3a1-0000-7000-8000-0000000000d4" // no grant at all
@@ -63,6 +64,7 @@ func TestBffMobileEndToEnd(t *testing.T) {
 	fx.entry()
 	fx.reads()
 	fx.missing()
+	fx.bounds()
 	fx.manifest()
 }
 
@@ -137,7 +139,7 @@ var queries = map[string]string{
 	"customer":  `query Customer($id: ID!) { customer(id: $id) { id name } }`,
 	"orders": `query Orders($state: String, $cursor: String) { myOrders(state: $state, cursor: $cursor, limit: 10) {
   items { id number legalEntityId customer { partnerId name } currency state businessDate total updatedAt masked } nextCursor } }`,
-	"order":         `query Order($id: ID!) { order(id: $id) { id number total } }`,
+	"order":         `query Order($id: ID!) { order(id: $id) { id number total customer { partnerId name } masked } }`,
 	"opportunities": `query Opps { myOpportunities(stage: "proposal") { items { id number name customer { partnerId name } currency amount stage probability expectedCloseDate updatedAt masked } nextCursor } }`,
 	"opportunity":   `query Opp($id: ID!) { opportunity(id: $id) { id name } }`,
 	"homeWithOpps":  `query HomeWithOpps { myTasks { items { id } nextCursor } myOpportunities { items { id } nextCursor } }`,

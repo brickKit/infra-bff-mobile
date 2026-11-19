@@ -156,6 +156,7 @@ type ComplexityRoot struct {
 
 	StockPosition struct {
 		Available func(childComplexity int) int
+		Masked    func(childComplexity int) int
 		OnHand    func(childComplexity int) int
 		Reserved  func(childComplexity int) int
 		Warehouse func(childComplexity int) int
@@ -796,6 +797,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.StockPosition.Available(childComplexity), true
+	case "StockPosition.masked":
+		if e.ComplexityRoot.StockPosition.Masked == nil {
+			break
+		}
+
+		return e.ComplexityRoot.StockPosition.Masked(childComplexity), true
 	case "StockPosition.onHand":
 		if e.ComplexityRoot.StockPosition.OnHand == nil {
 			break
@@ -1029,6 +1036,9 @@ var sources = []*ast.Source{
 # deployment does not have is not registered (BM07). Root fields are nullable: one owner failing leaves only its
 # field null (BM06). A failed field is null with a GraphQL error whose extensions are
 # be-protocol P3.3's {reason, domain, metadata, trace_id} (and retry_after for a retryable one) (BM06).
+# The owners' records (products, partners, orders, opportunities, stock) have every field nullable: an owner returns
+# null for a field it withholds and names it in masked (P8.31, as the GraphQL field name), so the front end tells "no
+# value" from "not yours to see" (BM04). The worklist's and the notifications' records have no maskable field.
 # Amounts and quantities are decimal strings (protocol 14), never floats. Lists are owner cursor pages: pass
 # nextCursor back as cursor; limit is 1..50 (BM03).
 
@@ -1141,39 +1151,42 @@ type ProductPage {
 
 "A product in a list: no stock here (one call per product would fan out; BM05)."
 type Product {
-  id: ID!
-  code: String!
-  kind: String!
-  name: String!
+  id: ID
+  code: String
+  kind: String
+  name: String
   names: Translations
-  baseUnit: String!
-  state: String!
-  "Fields the owner withheld from me (P8.31): null there means not visible, not empty."
+  baseUnit: String
+  state: String
+  "Fields the owner withheld from me (P8.31), as the GraphQL field names: null there means not visible, not empty."
   masked: [String!]!
 }
 
 type ProductDetail {
-  id: ID!
-  code: String!
-  kind: String!
-  name: String!
+  id: ID
+  code: String
+  kind: String
+  name: String
   names: Translations
-  baseUnit: String!
-  state: String!
+  baseUnit: String
+  state: String
   masked: [String!]!
   "On hand, reserved and available in each warehouse I may see (erp/inventory)."
   stock: [StockPosition!]
 }
 
 type StockPosition {
+  "Always present; its fields are null when the warehouse could not be named (BM05)."
   warehouse: Warehouse!
-  onHand: Decimal!
-  reserved: Decimal!
-  available: Decimal!
+  "erp/inventory's fields withheld from me (P8.31), as the GraphQL field names."
+  masked: [String!]!
+  onHand: Decimal
+  reserved: Decimal
+  available: Decimal
 }
 
 type Warehouse {
-  id: ID!
+  id: ID
   code: String
   "Null when the warehouse could not be named this time (BM05)."
   name: String
@@ -1187,13 +1200,13 @@ type PartnerPage {
 }
 
 type Partner {
-  id: ID!
-  kind: String!
-  name: String!
+  id: ID
+  kind: String
+  name: String
   names: Translations
   country: String
   taxId: String
-  state: String!
+  state: String
   masked: [String!]!
 }
 
@@ -1205,15 +1218,15 @@ type OrderPage {
 }
 
 type Order {
-  id: ID!
+  id: ID
   number: String
-  legalEntityId: ID!
-  customer: CustomerRef!
-  currency: String!
-  state: String!
+  legalEntityId: ID
+  customer: CustomerRef
+  currency: String
+  state: String
   businessDate: String
   total: Decimal
-  updatedAt: DateTime!
+  updatedAt: DateTime
   masked: [String!]!
 }
 
@@ -1231,16 +1244,16 @@ type OpportunityPage {
 }
 
 type Opportunity {
-  id: ID!
+  id: ID
   number: String
-  name: String!
-  customer: CustomerRef!
-  currency: String!
+  name: String
+  customer: CustomerRef
+  currency: String
   amount: Decimal
-  stage: String!
+  stage: String
   probability: Int
   expectedCloseDate: String
-  updatedAt: DateTime!
+  updatedAt: DateTime
   masked: [String!]!
 }
 `, BuiltIn: false},
@@ -1465,6 +1478,8 @@ func (ec *executionContext) childFields_StockPosition(ctx context.Context, field
 	switch field.Name {
 	case "warehouse":
 		return ec.fieldContext_StockPosition_warehouse(ctx, field)
+	case "masked":
+		return ec.fieldContext_StockPosition_masked(ctx, field)
 	case "onHand":
 		return ec.fieldContext_StockPosition_onHand(ctx, field)
 	case "reserved":
@@ -2391,11 +2406,11 @@ func (ec *executionContext) _Opportunity_id(ctx context.Context, field graphql.C
 			return obj.ID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNID2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Opportunity_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2437,11 +2452,11 @@ func (ec *executionContext) _Opportunity_name(ctx context.Context, field graphql
 			return obj.Name, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Opportunity_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2461,10 +2476,10 @@ func (ec *executionContext) _Opportunity_customer(ctx context.Context, field gra
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *model.CustomerRef) graphql.Marshaler {
-			return ec.marshalNCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐCustomerRef(ctx, selections, v)
+			return ec.marshalOCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐCustomerRef(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Opportunity_customer(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2492,11 +2507,11 @@ func (ec *executionContext) _Opportunity_currency(ctx context.Context, field gra
 			return obj.Currency, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Opportunity_currency(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2538,11 +2553,11 @@ func (ec *executionContext) _Opportunity_stage(ctx context.Context, field graphq
 			return obj.Stage, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Opportunity_stage(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2607,11 +2622,11 @@ func (ec *executionContext) _Opportunity_updatedAt(ctx context.Context, field gr
 			return obj.UpdatedAt, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNDateTime2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Opportunity_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2708,11 +2723,11 @@ func (ec *executionContext) _Order_id(ctx context.Context, field graphql.Collect
 			return obj.ID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNID2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Order_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2754,11 +2769,11 @@ func (ec *executionContext) _Order_legalEntityId(ctx context.Context, field grap
 			return obj.LegalEntityID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNID2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Order_legalEntityId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2778,10 +2793,10 @@ func (ec *executionContext) _Order_customer(ctx context.Context, field graphql.C
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *model.CustomerRef) graphql.Marshaler {
-			return ec.marshalNCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐCustomerRef(ctx, selections, v)
+			return ec.marshalOCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐCustomerRef(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Order_customer(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2809,11 +2824,11 @@ func (ec *executionContext) _Order_currency(ctx context.Context, field graphql.C
 			return obj.Currency, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Order_currency(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2832,11 +2847,11 @@ func (ec *executionContext) _Order_state(ctx context.Context, field graphql.Coll
 			return obj.State, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Order_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2901,11 +2916,11 @@ func (ec *executionContext) _Order_updatedAt(ctx context.Context, field graphql.
 			return obj.UpdatedAt, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNDateTime2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Order_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3002,11 +3017,11 @@ func (ec *executionContext) _Partner_id(ctx context.Context, field graphql.Colle
 			return obj.ID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNID2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Partner_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3025,11 +3040,11 @@ func (ec *executionContext) _Partner_kind(ctx context.Context, field graphql.Col
 			return obj.Kind, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Partner_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3048,11 +3063,11 @@ func (ec *executionContext) _Partner_name(ctx context.Context, field graphql.Col
 			return obj.Name, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Partner_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3140,11 +3155,11 @@ func (ec *executionContext) _Partner_state(ctx context.Context, field graphql.Co
 			return obj.State, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Partner_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3241,11 +3256,11 @@ func (ec *executionContext) _Product_id(ctx context.Context, field graphql.Colle
 			return obj.ID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNID2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Product_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3264,11 +3279,11 @@ func (ec *executionContext) _Product_code(ctx context.Context, field graphql.Col
 			return obj.Code, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Product_code(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3287,11 +3302,11 @@ func (ec *executionContext) _Product_kind(ctx context.Context, field graphql.Col
 			return obj.Kind, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Product_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3310,11 +3325,11 @@ func (ec *executionContext) _Product_name(ctx context.Context, field graphql.Col
 			return obj.Name, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Product_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3356,11 +3371,11 @@ func (ec *executionContext) _Product_baseUnit(ctx context.Context, field graphql
 			return obj.BaseUnit, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Product_baseUnit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3379,11 +3394,11 @@ func (ec *executionContext) _Product_state(ctx context.Context, field graphql.Co
 			return obj.State, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Product_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3425,11 +3440,11 @@ func (ec *executionContext) _ProductDetail_id(ctx context.Context, field graphql
 			return obj.ID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNID2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_ProductDetail_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3448,11 +3463,11 @@ func (ec *executionContext) _ProductDetail_code(ctx context.Context, field graph
 			return obj.Code, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_ProductDetail_code(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3471,11 +3486,11 @@ func (ec *executionContext) _ProductDetail_kind(ctx context.Context, field graph
 			return obj.Kind, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_ProductDetail_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3494,11 +3509,11 @@ func (ec *executionContext) _ProductDetail_name(ctx context.Context, field graph
 			return obj.Name, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_ProductDetail_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3540,11 +3555,11 @@ func (ec *executionContext) _ProductDetail_baseUnit(ctx context.Context, field g
 			return obj.BaseUnit, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_ProductDetail_baseUnit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -3563,11 +3578,11 @@ func (ec *executionContext) _ProductDetail_state(ctx context.Context, field grap
 			return obj.State, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_ProductDetail_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4276,6 +4291,29 @@ func (ec *executionContext) fieldContext_StockPosition_warehouse(_ context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _StockPosition_masked(ctx context.Context, field graphql.CollectedField, obj *model.StockPosition) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_StockPosition_masked(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Masked, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []string) graphql.Marshaler {
+			return ec.marshalNString2ᚕstringᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_StockPosition_masked(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("StockPosition", field, false, false, "String")
+}
+
 func (ec *executionContext) _StockPosition_onHand(ctx context.Context, field graphql.CollectedField, obj *model.StockPosition) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4288,11 +4326,11 @@ func (ec *executionContext) _StockPosition_onHand(ctx context.Context, field gra
 			return obj.OnHand, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNDecimal2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalODecimal2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_StockPosition_onHand(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4311,11 +4349,11 @@ func (ec *executionContext) _StockPosition_reserved(ctx context.Context, field g
 			return obj.Reserved, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNDecimal2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalODecimal2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_StockPosition_reserved(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4334,11 +4372,11 @@ func (ec *executionContext) _StockPosition_available(ctx context.Context, field 
 			return obj.Available, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNDecimal2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalODecimal2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_StockPosition_available(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -4582,11 +4620,11 @@ func (ec *executionContext) _Warehouse_id(ctx context.Context, field graphql.Col
 			return obj.ID, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNID2string(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Warehouse_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -6140,7 +6178,7 @@ func (ec *executionContext) _Opportunity(ctx context.Context, sel ast.SelectionS
 			out.Values[i] = graphql.MarshalString("Opportunity")
 		case "id":
 			out.Values[i] = ec._Opportunity_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "number":
@@ -6150,17 +6188,17 @@ func (ec *executionContext) _Opportunity(ctx context.Context, sel ast.SelectionS
 			}
 		case "name":
 			out.Values[i] = ec._Opportunity_name(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "customer":
 			out.Values[i] = ec._Opportunity_customer(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "currency":
 			out.Values[i] = ec._Opportunity_currency(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "amount":
@@ -6170,7 +6208,7 @@ func (ec *executionContext) _Opportunity(ctx context.Context, sel ast.SelectionS
 			}
 		case "stage":
 			out.Values[i] = ec._Opportunity_stage(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "probability":
@@ -6185,7 +6223,7 @@ func (ec *executionContext) _Opportunity(ctx context.Context, sel ast.SelectionS
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Opportunity_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "masked":
@@ -6261,7 +6299,7 @@ func (ec *executionContext) _Order(ctx context.Context, sel ast.SelectionSet, ob
 			out.Values[i] = graphql.MarshalString("Order")
 		case "id":
 			out.Values[i] = ec._Order_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "number":
@@ -6271,22 +6309,22 @@ func (ec *executionContext) _Order(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "legalEntityId":
 			out.Values[i] = ec._Order_legalEntityId(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "customer":
 			out.Values[i] = ec._Order_customer(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "currency":
 			out.Values[i] = ec._Order_currency(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "state":
 			out.Values[i] = ec._Order_state(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "businessDate":
@@ -6301,7 +6339,7 @@ func (ec *executionContext) _Order(ctx context.Context, sel ast.SelectionSet, ob
 			}
 		case "updatedAt":
 			out.Values[i] = ec._Order_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "masked":
@@ -6377,17 +6415,17 @@ func (ec *executionContext) _Partner(ctx context.Context, sel ast.SelectionSet, 
 			out.Values[i] = graphql.MarshalString("Partner")
 		case "id":
 			out.Values[i] = ec._Partner_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "kind":
 			out.Values[i] = ec._Partner_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "name":
 			out.Values[i] = ec._Partner_name(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "names":
@@ -6407,7 +6445,7 @@ func (ec *executionContext) _Partner(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "state":
 			out.Values[i] = ec._Partner_state(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "masked":
@@ -6483,22 +6521,22 @@ func (ec *executionContext) _Product(ctx context.Context, sel ast.SelectionSet, 
 			out.Values[i] = graphql.MarshalString("Product")
 		case "id":
 			out.Values[i] = ec._Product_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "code":
 			out.Values[i] = ec._Product_code(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "kind":
 			out.Values[i] = ec._Product_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "name":
 			out.Values[i] = ec._Product_name(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "names":
@@ -6508,12 +6546,12 @@ func (ec *executionContext) _Product(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "baseUnit":
 			out.Values[i] = ec._Product_baseUnit(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "state":
 			out.Values[i] = ec._Product_state(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "masked":
@@ -6551,22 +6589,22 @@ func (ec *executionContext) _ProductDetail(ctx context.Context, sel ast.Selectio
 			out.Values[i] = graphql.MarshalString("ProductDetail")
 		case "id":
 			out.Values[i] = ec._ProductDetail_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "code":
 			out.Values[i] = ec._ProductDetail_code(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "kind":
 			out.Values[i] = ec._ProductDetail_kind(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "name":
 			out.Values[i] = ec._ProductDetail_name(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "names":
@@ -6576,12 +6614,12 @@ func (ec *executionContext) _ProductDetail(ctx context.Context, sel ast.Selectio
 			}
 		case "baseUnit":
 			out.Values[i] = ec._ProductDetail_baseUnit(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "state":
 			out.Values[i] = ec._ProductDetail_state(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "masked":
@@ -6782,19 +6820,24 @@ func (ec *executionContext) _StockPosition(ctx context.Context, sel ast.Selectio
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "masked":
+			out.Values[i] = ec._StockPosition_masked(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "onHand":
 			out.Values[i] = ec._StockPosition_onHand(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "reserved":
 			out.Values[i] = ec._StockPosition_reserved(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "available":
 			out.Values[i] = ec._StockPosition_available(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		default:
@@ -6984,7 +7027,7 @@ func (ec *executionContext) _Warehouse(ctx context.Context, sel ast.SelectionSet
 			out.Values[i] = graphql.MarshalString("Warehouse")
 		case "id":
 			out.Values[i] = ec._Warehouse_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		case "code":
@@ -7468,14 +7511,6 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐCustomerRef(ctx context.Context, sel ast.SelectionSet, v *model.CustomerRef) graphql.Marshaler {
-	if v == nil {
-		graphql.AddInvalidNullError(ctx, "CustomerRef!")
-		return graphql.Null
-	}
-	return ec._CustomerRef(ctx, sel, v)
-}
-
 func (ec *executionContext) unmarshalNDateTime2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -7486,20 +7521,6 @@ func (ec *executionContext) marshalNDateTime2string(ctx context.Context, sel ast
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		graphql.AddInvalidNullFromMarshaler(ctx, "DateTime!")
-	}
-	return res
-}
-
-func (ec *executionContext) unmarshalNDecimal2string(ctx context.Context, v any) (string, error) {
-	res, err := graphql.UnmarshalString(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNDecimal2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
-	_ = sel
-	res := graphql.MarshalString(v)
-	if res == graphql.Null {
-		graphql.AddInvalidNullFromMarshaler(ctx, "Decimal!")
 	}
 	return res
 }
@@ -7913,6 +7934,13 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	_ = ctx
 	res := graphql.MarshalBoolean(*v)
 	return res
+}
+
+func (ec *executionContext) marshalOCustomerRef2ᚖgithubᚗcomᚋbrickKitᚋinfraᚑbffᚑmobileᚋv3ᚋinternalᚋmodelᚐCustomerRef(ctx context.Context, sel ast.SelectionSet, v *model.CustomerRef) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._CustomerRef(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalODateTime2ᚖstring(ctx context.Context, v any) (*string, error) {

@@ -16,37 +16,41 @@ type customerRef struct {
 	Name      string `json:"name"`
 }
 
+// model is nil when the owner withheld the customer (P8.31).
 func (c *customerRef) model() *model.CustomerRef {
 	if c == nil {
-		return &model.CustomerRef{}
+		return nil
 	}
 	return &model.CustomerRef{PartnerID: c.PartnerID, Name: c.Name}
 }
 
 type orderRecord struct {
-	ID            string       `json:"id"`
+	ID            *string      `json:"id"`
 	Number        *string      `json:"number"`
-	LegalEntityID string       `json:"legal_entity_id"`
+	LegalEntityID *string      `json:"legal_entity_id"`
 	Customer      *customerRef `json:"customer"`
-	Currency      string       `json:"currency"`
-	State         string       `json:"state"`
+	Currency      *string      `json:"currency"`
+	State         *string      `json:"state"`
 	BusinessDate  *string      `json:"business_date"`
 	Totals        *struct {
 		Gross *string `json:"gross"`
 	} `json:"totals"`
-	UpdatedAt string   `json:"updated_at"`
+	UpdatedAt *string  `json:"updated_at"`
 	Masked    []string `json:"_masked"`
 }
 
 func (x orderRecord) model() model.Order {
 	o := model.Order{ID: x.ID, Number: x.Number, LegalEntityID: x.LegalEntityID, Customer: x.Customer.model(),
 		Currency: x.Currency, State: x.State, BusinessDate: x.BusinessDate, UpdatedAt: x.UpdatedAt,
-		Masked: masked(x.Masked)}
+		Masked: masked(x.Masked, orderRenames)}
 	if x.Totals != nil {
 		o.Total = x.Totals.Gross
 	}
 	return o
 }
+
+// orderRenames: the order's totals are its total here.
+var orderRenames = map[string]string{"totals": "total"}
 
 // mine is the verified caller, the owner filter of "my" lists (BM04).
 func mine(ctx context.Context) (string, error) {
@@ -79,9 +83,12 @@ func (r *Reads) MyOrders(ctx context.Context, state, cursor *string, limit *int)
 }
 
 // Order is one sales order (erp/sales GET /api/sales/orders/{id}).
-func (r *Reads) Order(ctx context.Context, id string) (*model.Order, error) {
+func (r *Reads) Order(ctx context.Context, recordID string) (*model.Order, error) {
+	if err := id("id", recordID); err != nil {
+		return nil, err
+	}
 	var x orderRecord
-	if err := r.b.Get(ctx, core.Sales, "/api/sales/orders/"+url.PathEscape(id), nil, &x); err != nil {
+	if err := r.b.Get(ctx, core.Sales, "/api/sales/orders/"+url.PathEscape(recordID), nil, &x); err != nil {
 		return nil, err
 	}
 	o := x.model()

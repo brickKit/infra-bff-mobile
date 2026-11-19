@@ -29,16 +29,16 @@ type NotificationPage struct {
 }
 
 type Opportunity struct {
-	ID                string       `json:"id"`
+	ID                *string      `json:"id,omitempty"`
 	Number            *string      `json:"number,omitempty"`
-	Name              string       `json:"name"`
-	Customer          *CustomerRef `json:"customer"`
-	Currency          string       `json:"currency"`
+	Name              *string      `json:"name,omitempty"`
+	Customer          *CustomerRef `json:"customer,omitempty"`
+	Currency          *string      `json:"currency,omitempty"`
 	Amount            *string      `json:"amount,omitempty"`
-	Stage             string       `json:"stage"`
+	Stage             *string      `json:"stage,omitempty"`
 	Probability       *int         `json:"probability,omitempty"`
 	ExpectedCloseDate *string      `json:"expectedCloseDate,omitempty"`
-	UpdatedAt         string       `json:"updatedAt"`
+	UpdatedAt         *string      `json:"updatedAt,omitempty"`
 	Masked            []string     `json:"masked"`
 }
 
@@ -48,15 +48,15 @@ type OpportunityPage struct {
 }
 
 type Order struct {
-	ID            string       `json:"id"`
+	ID            *string      `json:"id,omitempty"`
 	Number        *string      `json:"number,omitempty"`
-	LegalEntityID string       `json:"legalEntityId"`
-	Customer      *CustomerRef `json:"customer"`
-	Currency      string       `json:"currency"`
-	State         string       `json:"state"`
+	LegalEntityID *string      `json:"legalEntityId,omitempty"`
+	Customer      *CustomerRef `json:"customer,omitempty"`
+	Currency      *string      `json:"currency,omitempty"`
+	State         *string      `json:"state,omitempty"`
 	BusinessDate  *string      `json:"businessDate,omitempty"`
 	Total         *string      `json:"total,omitempty"`
-	UpdatedAt     string       `json:"updatedAt"`
+	UpdatedAt     *string      `json:"updatedAt,omitempty"`
 	Masked        []string     `json:"masked"`
 }
 
@@ -66,13 +66,13 @@ type OrderPage struct {
 }
 
 type Partner struct {
-	ID      string         `json:"id"`
-	Kind    string         `json:"kind"`
-	Name    string         `json:"name"`
+	ID      *string        `json:"id,omitempty"`
+	Kind    *string        `json:"kind,omitempty"`
+	Name    *string        `json:"name,omitempty"`
 	Names   map[string]any `json:"names,omitempty"`
 	Country *string        `json:"country,omitempty"`
 	TaxID   *string        `json:"taxId,omitempty"`
-	State   string         `json:"state"`
+	State   *string        `json:"state,omitempty"`
 	Masked  []string       `json:"masked"`
 }
 
@@ -83,25 +83,25 @@ type PartnerPage struct {
 
 // A product in a list: no stock here (one call per product would fan out; BM05).
 type Product struct {
-	ID       string         `json:"id"`
-	Code     string         `json:"code"`
-	Kind     string         `json:"kind"`
-	Name     string         `json:"name"`
+	ID       *string        `json:"id,omitempty"`
+	Code     *string        `json:"code,omitempty"`
+	Kind     *string        `json:"kind,omitempty"`
+	Name     *string        `json:"name,omitempty"`
 	Names    map[string]any `json:"names,omitempty"`
-	BaseUnit string         `json:"baseUnit"`
-	State    string         `json:"state"`
-	// Fields the owner withheld from me (P8.31): null there means not visible, not empty.
+	BaseUnit *string        `json:"baseUnit,omitempty"`
+	State    *string        `json:"state,omitempty"`
+	// Fields the owner withheld from me (P8.31), as the GraphQL field names: null there means not visible, not empty.
 	Masked []string `json:"masked"`
 }
 
 type ProductDetail struct {
-	ID       string         `json:"id"`
-	Code     string         `json:"code"`
-	Kind     string         `json:"kind"`
-	Name     string         `json:"name"`
+	ID       *string        `json:"id,omitempty"`
+	Code     *string        `json:"code,omitempty"`
+	Kind     *string        `json:"kind,omitempty"`
+	Name     *string        `json:"name,omitempty"`
 	Names    map[string]any `json:"names,omitempty"`
-	BaseUnit string         `json:"baseUnit"`
-	State    string         `json:"state"`
+	BaseUnit *string        `json:"baseUnit,omitempty"`
+	State    *string        `json:"state,omitempty"`
 	Masked   []string       `json:"masked"`
 	// On hand, reserved and available in each warehouse I may see (erp/inventory).
 	Stock []StockPosition `json:"stock,omitempty"`
@@ -116,10 +116,13 @@ type Query struct {
 }
 
 type StockPosition struct {
+	// Always present; its fields are null when the warehouse could not be named (BM05).
 	Warehouse *Warehouse `json:"warehouse"`
-	OnHand    string     `json:"onHand"`
-	Reserved  string     `json:"reserved"`
-	Available string     `json:"available"`
+	// erp/inventory's fields withheld from me (P8.31), as the GraphQL field names.
+	Masked    []string `json:"masked"`
+	OnHand    *string  `json:"onHand,omitempty"`
+	Reserved  *string  `json:"reserved,omitempty"`
+	Available *string  `json:"available,omitempty"`
 }
 
 type SummaryField struct {
@@ -144,7 +147,7 @@ type TaskSummary struct {
 }
 
 type Warehouse struct {
-	ID   string  `json:"id"`
+	ID   *string `json:"id,omitempty"`
 	Code *string `json:"code,omitempty"`
 	// Null when the warehouse could not be named this time (BM05).
 	Name *string `json:"name,omitempty"`

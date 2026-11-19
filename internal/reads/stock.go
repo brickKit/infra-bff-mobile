@@ -20,9 +20,9 @@ type request struct {
 }
 
 type warehouse struct {
-	ID   string `json:"id"`
-	Code string `json:"code"`
-	Name string `json:"name"`
+	ID   string  `json:"id"`
+	Code *string `json:"code"`
+	Name *string `json:"name"`
 }
 
 type requestKey struct{}
@@ -67,39 +67,69 @@ func (r *Reads) catalog(ctx context.Context) (map[string]warehouse, error) {
 	return req.catalog, req.err
 }
 
+// position is erp/inventory's stock position as its user surface answers it (masked fields null, P8.31).
+type position struct {
+	WarehouseID *string  `json:"warehouse_id"`
+	OnHand      *string  `json:"on_hand"`
+	Reserved    *string  `json:"reserved"`
+	Available   *string  `json:"available"`
+	Masked      []string `json:"_masked"`
+}
+
+// positionRenames: a position's warehouse_id is its warehouse here.
+var positionRenames = map[string]string{"warehouse_id": "warehouse"}
+
 // Stock is a product's positions in the warehouses the caller may see (erp/inventory GET
-// /api/inventory/positions?product_id=), named from the request's catalog. A catalog that cannot be read leaves the
-// positions unnamed, with its error (named answers the warning; the positions stand).
-func (r *Reads) Stock(ctx context.Context, productID string) ([]model.StockPosition, error, error) {
+// /api/inventory/positions?product_id=), every page up to WarehousePages, named from the request's catalog. What
+// cannot be completed is a warning beside the positions read (BM05): the catalog not read (the positions unnamed),
+// or more positions than one request reads (DEPENDENCY_UNAVAILABLE, never a silent cut).
+func (r *Reads) Stock(ctx context.Context, productID string) ([]model.StockPosition, []error, error) {
 	var (
 		wg      sync.WaitGroup
 		names   map[string]warehouse
 		nameErr error
 	)
 	wg.Go(func() { names, nameErr = r.catalog(ctx) })
-	var out struct {
-		Positions []struct {
-			WarehouseID string `json:"warehouse_id"`
-			OnHand      string `json:"on_hand"`
-			Reserved    string `json:"reserved"`
-			Available   string `json:"available"`
-		} `json:"positions"`
+	var all []position
+	var warnings []error
+	cursor := ""
+	for page := 0; ; page++ {
+		if page == core.WarehousePages {
+			warnings = append(warnings, errs.New(errs.ReasonDependencyUnavailable,
+				"more stock positions than one request reads").With("dependency", core.Inventory))
+			break
+		}
+		q := url.Values{"product_id": {productID}, "limit": {strconv.Itoa(core.WarehousePageSize)}}
+		if cursor != "" {
+			q.Set("cursor", cursor)
+		}
+		var out struct {
+			Positions  []position `json:"positions"`
+			NextCursor string     `json:"next_cursor"`
+		}
+		if err := r.b.Get(ctx, core.Inventory, "/api/inventory/positions", q, &out); err != nil {
+			wg.Wait()
+			return nil, nil, err
+		}
+		all = append(all, out.Positions...)
+		if cursor = out.NextCursor; cursor == "" {
+			break
+		}
 	}
-	q := url.Values{"product_id": {productID}, "limit": {strconv.Itoa(core.WarehousePageSize)}}
-	err := r.b.Get(ctx, core.Inventory, "/api/inventory/positions", q, &out)
 	wg.Wait()
-	if err != nil {
-		return nil, nil, err
+	if nameErr != nil {
+		warnings = append(warnings, nameErr)
 	}
-	stock := make([]model.StockPosition, 0, len(out.Positions))
-	for _, p := range out.Positions {
+	stock := make([]model.StockPosition, 0, len(all))
+	for _, p := range all {
 		w := &model.Warehouse{ID: p.WarehouseID}
-		if named, ok := names[p.WarehouseID]; ok {
-			code, name := named.Code, named.Name
-			w.Code, w.Name = &code, &name
+		if p.WarehouseID != nil {
+			if named, ok := names[*p.WarehouseID]; ok {
+				w.Code, w.Name = named.Code, named.Name
+			}
 		}
 		stock = append(stock, model.StockPosition{Warehouse: w, OnHand: p.OnHand, Reserved: p.Reserved,
-			Available: p.Available})
+			Available: p.Available, Masked: masked(p.Masked, positionRenames)})
 	}
-	return stock, nameErr, nil
+	return stock, warnings, nil
 }

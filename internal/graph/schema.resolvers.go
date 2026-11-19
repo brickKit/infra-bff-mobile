@@ -7,19 +7,22 @@ package graph
 
 import (
 	"context"
-	"github.com/99designs/gqlgen/graphql"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/brickKit/infra-bff-mobile/v3/internal/model"
 )
 
 // Stock is the resolver for the stock field.
 func (r *productDetailResolver) Stock(ctx context.Context, obj *model.ProductDetail) ([]model.StockPosition, error) {
-	stock, warning, err := r.Reads.Stock(ctx, obj.ID)
+	if obj.ID == nil { // the owner withheld the product's id: no stock to ask for
+		return nil, nil
+	}
+	stock, warnings, err := r.Reads.Stock(ctx, *obj.ID)
 	if err != nil {
 		return nil, err
 	}
-	if warning != nil { // the positions stand, unnamed (BM05)
-		graphql.AddError(ctx, warning)
+	for _, w := range warnings { // the positions read stand (BM05)
+		graphql.AddError(ctx, w)
 	}
 	return stock, nil
 }

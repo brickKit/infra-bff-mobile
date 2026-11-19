@@ -23,9 +23,11 @@ func (e *Entry) present(ctx context.Context, err error) *gqlerror.Error {
 		e.rt.Logger.ErrorContext(ctx, "a field failed", "event", "bff_field_failed", "path", g.Path.String(),
 			"error", err.Error())
 	}
-	title := own.Title
-	if title == "" {
-		title = own.Reason
+	// the message is the catalog's title for a platform reason, the reason itself otherwise: never an owner's own
+	// wording (BM09)
+	title := own.Reason
+	if entry, ok := errs.Platform(own.Reason); ok && own.Domain == errs.PlatformDomain {
+		title = entry.Title
 	}
 	ext := map[string]any{"reason": own.Reason, "domain": own.Domain}
 	if len(own.Metadata) > 0 {
@@ -41,13 +43,14 @@ func (e *Entry) present(ctx context.Context, err error) *gqlerror.Error {
 }
 
 // retryAfter is the seconds to wait before retrying: the owner's or the SDK's when given, else one second for a
-// reason the catalog marks retryable or "query first" (every field here is a read: the query is the retry); 0: not
-// retryable.
+// platform reason the catalog marks retryable or "query first" (every field here is a read: the query is the retry);
+// an owner's own reason never is; 0: not retryable.
 func retryAfter(e *errs.Error) int {
 	if e.RetryAfter > 0 {
 		return int(math.Ceil(e.RetryAfter.Seconds()))
 	}
-	if entry, ok := errs.Platform(e.Reason); ok && (entry.Retry == errs.RetryYes || entry.Retry == errs.RetryQueryFirst) {
+	if entry, ok := errs.Platform(e.Reason); ok && e.Domain == errs.PlatformDomain &&
+		(entry.Retry == errs.RetryYes || entry.Retry == errs.RetryQueryFirst) {
 		return 1
 	}
 	return 0
